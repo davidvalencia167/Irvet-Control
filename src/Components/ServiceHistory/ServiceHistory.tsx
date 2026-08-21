@@ -24,11 +24,6 @@ const TIPO_COLOR: Record<string, string> = {
   "Consulta Médica":"bg-teal-50 text-teal-700",
 };
 
-const PRIO_BADGE: Record<string, string> = {
-  Normal:      "bg-gray-100 text-gray-500",
-  Prioritaria: "bg-rose-50 text-rose-600",
-};
-
 export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest,}: ServiceHistoryProps) {
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState("todos");

@@ -150,7 +150,6 @@ export default function Services() {
     };
 
     const deletedTarget = ordenes.find((o) => o.id ===deleteId);
-    const editTarget = ordenes.find((o) => o.id === editingId);
 
 
     return(
