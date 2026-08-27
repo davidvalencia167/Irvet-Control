@@ -9,6 +9,8 @@ export interface PetEntry {
     raza: string;
     sexo: string;
     edad: string;
+    edadAnios: string;
+    edadMeses: string;
     horaEnvio: string;
     estadoMuestra: "Normal" | "Coagulada";
 }
@@ -33,11 +35,13 @@ export interface Orden {
     id: string;
     factura: string;
     fecha: string;
+    horaSolicitud: string;
     numeroOrden: string;
     responsable: string;
     cliente: string;
     tipoServicio: string;
     descripcionServicio: string;
+    serviciosSeleccionados: string[];
     cantidad: string;
     nombreMedico: string;
     matriculaMedico: string;

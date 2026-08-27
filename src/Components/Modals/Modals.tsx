@@ -52,6 +52,7 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                 <div className="overflow-y-auto p-6 space-y-1">
                     <Section emoji="📋" title="Información General">
                           <Row label="Fecha" value={orden.fecha}/>
+                        <Row label="Hora de Solicitud" value={orden.horaSolicitud}/>
                           <Row label="N° Orden" value={orden.numeroOrden}/>
                           <Row label="Factura" value={orden.factura}/>
                           <Row label="Responsable" value={orden.responsable}/>
@@ -86,7 +87,7 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                               {[
                                 ["Propietario", pet.propietario], ["Teléfono", pet.telefono],
                                 ["Especie", pet.especie], ["Raza", pet.raza],
-                                ["Sexo", pet.sexo], ["Edad", pet.edad],
+                                ["Sexo", pet.sexo], ["Edad", pet.edad || `${pet.edadAnios || "0"} años, ${pet.edadMeses || "0"} meses`],
                                 ["Hr. Envío", pet.horaEnvio],
                               ].map(([k, v]) => <Row key={k} label={k} value={v} />)}
                             </div>

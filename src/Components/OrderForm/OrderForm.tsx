@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormOrden, PaymentRow, PetEntry } from "../../types";
 import { AlertCircle, ChevronDown, ChevronUp, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
-import { CLIENTES, DOMICILIARIOS, IC, MEDIOS_PAGO, newPaymentRow, newPet, RESPONSABLES, SERVICIOS_POR_TIPO } from "../../constants";
+import { CLIENTES, currentDate, currentTime, DOMICILIARIOS, IC, MEDIOS_PAGO, newPaymentRow, newPet, RESPONSABLES, SERVICIOS_POR_TIPO } from "../../constants";
+import { BREEDS_BY_SPECIES, SPECIES } from "../../constants/breeds";
+import { calculateServiceTotal } from "../../constants/services";
 
 function Label({ text, required }: { text: string; required?: boolean }) {
   return (
@@ -18,7 +20,6 @@ function FieldErr({ msg }: { msg?: string }) {
 const TABS = [
     { id: "general",      emoji: "📋", label: "General" },
     { id: "mascotas",     emoji: "🐾", label: "Mascotas" },
-    { id: "domicilio",    emoji: "🚗", label: "Domicilio" },
     { id: "pago",         emoji: "💳", label: "Pago" },
     { id: "observaciones",emoji: "📝", label: "Observaciones" },
 ];
@@ -32,6 +33,7 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
 }) {
     const [open, setOpen] = useState(true);
     const upd = (k: keyof PetEntry, v: string) => onChange(pet.id, k, v);
+    const breeds = BREEDS_BY_SPECIES[pet.especie] ?? [];
 
     return(
         <div className="border border-[rgba(27, 43, 75, 0.1)] rounded-2xl overflow-hidden">
@@ -72,7 +74,7 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
                       <input value={pet.propietario} onChange={(e) => upd("propietario", e.target.value)} placeholder="Nombre del dueño" className={IC} />
                     </div>
                     <div>
-                      <Label text="Teléfono"/>
+                      <Label text="N° Celular"/>
                       <input value={pet.telefono} onChange={(e) => upd("telefono", e.target.value)} placeholder="3001234567" className={IC} />
                     </div>
                     <div className="col-span-2">
@@ -82,17 +84,16 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
                     <div>
                       <Label text="Especie"/>
                       <select value={pet.especie} onChange={(e) => upd("especie", e.target.value)} className={IC}>
-                          <option value="">Seleccionar....</option>
-                          <option>Canino</option>
-                          <option>Felino</option>
-                          <option>Ave</option>
-                          <option>Reptil</option>
-                          <option>Otro</option>
+                          <option value="">Seleccionar especie...</option>
+                          {SPECIES.map((species) => <option key={species}>{species}</option>)}
                       </select>
                     </div>
                     <div className="col-span-2">
                       <Label text="Raza"/>
-                      <input value={pet.raza} onChange={(e) => upd("raza", e.target.value)} placeholder="Ej: Golden Retriever" className={IC}/>
+                      <select value={pet.raza} onChange={(e) => upd("raza", e.target.value)} disabled={!pet.especie} className={`${IC} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                          <option value="">{pet.especie ? "Seleccionar raza..." : "Seleccione primero la especie"}</option>
+                          {breeds.map((breed) => <option key={breed}>{breed}</option>)}
+                      </select>
                     </div>
                     <div>
                       <Label text="Sexo"/>
@@ -104,27 +105,41 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
                     </div>
                     <div>
                       <Label text="Edad"/>
-                      <input value={pet.edad} onChange={(e) => upd("edad", e.target.value)} placeholder="Ej: 3 años" className={IC} />
-                    </div>
-                    <div>
-                      <Label text="Hora de Envio"/>
-                      <input type="time" value={pet.horaEnvio} onChange={(e) => upd("horaEnvio", e.target.value)} className={IC}/>
-                    </div>
-                    <div className="col-span-2">
-                      <Label text="Estado de la Muestra"/>
-                      <div className="flex gap-2 h-[38px]">
-                          {(["Normal", "Coagulada"] as const).map((m) => (
-                            <button key={m} type="button" onClick={() => upd("estadoMuestra", m)} className={`flex-1 rounded-xl text-[12px] font-bold border transition-all ${pet.estadoMuestra === m ? m === "Normal" ? "bg-emerald-500 text-white border-emerald-500" : "bg-amber-500 text-white border-amber-500" : "bg-[#F4F7FA] text-[#6B7A99] border-[rgba(27,43,75,0.1)] hover:bg-gray-100"}`}>
-                              {m}
-                            </button>
-                          ))}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <input
+                            type="number"
+                            min="0"
+                            value={pet.edadAnios}
+                            onChange={(e) => {
+                              const years = e.target.value;
+                              onChange(pet.id, "edadAnios", years);
+                              onChange(pet.id, "edad", `${years || "0"} años, ${pet.edadMeses || "0"} meses`);
+                            }}
+                            placeholder="Años"
+                            aria-label="Años"
+                            className={IC}
+                          />
+                          <span className="text-[10px] text-[#6B7A99]">Años</span>
+                        </div>
+                        <div>
+                          <input
+                            type="number"
+                            min="0"
+                            max="11"
+                            value={pet.edadMeses}
+                            onChange={(e) => {
+                              const months = e.target.value;
+                              onChange(pet.id, "edadMeses", months);
+                              onChange(pet.id, "edad", `${pet.edadAnios || "0"} años, ${months || "0"} meses`);
+                            }}
+                            placeholder="Meses"
+                            aria-label="Meses"
+                            className={IC}
+                          />
+                          <span className="text-[10px] text-[#6B7A99]">Meses</span>
+                        </div>
                       </div>
-                      {
-                        pet.estadoMuestra === "Coagulada" && (
-                          <p className="text-[11px] text-amber-600 mt-1.5 font-medium">
-                            ⚠️ No contabiliza como examen nuevo, sí como domicilio.
-                          </p>
-                        )}
                     </div>
                 </div>
               )}
@@ -133,24 +148,22 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
 }
 
 function PaymentBlock({
-  pagos, valorTotal, estadoPago, movimiento,
+  pagos, valorTotal, movimiento,
   onAddRow, onUpdateRow, onRemoveRow,
-  onValorTotal, onEstadoPago, onMovimiento,
+  onMovimiento,
 }: {
   pagos: PaymentRow[];
   valorTotal: string;
-  estadoPago: "Pagado" | "Pendiente por pago";
   movimiento: "Ingreso" | "Gasto";
   onAddRow: () => void;
   onUpdateRow: (id: string, key: keyof PaymentRow, val: string) => void;
   onRemoveRow: (id: string) => void;
-  onValorTotal: (v: string) => void;
-  onEstadoPago: (v: "Pagado" | "Pendiente por pago") => void;
   onMovimiento: (v: "Ingreso" | "Gasto") => void;
 }) {
   const totalPagado = pagos.reduce((a, p) => a + Number(p.valor || 0), 0);
   const total = Number(valorTotal || 0);
   const pendiente = Math.max(0, total - totalPagado);
+  const pagoCompleto = total > 0 && pendiente === 0;
 
   return (
     <div className="space-y-5">
@@ -161,10 +174,11 @@ function PaymentBlock({
           <input
             type="number"
             value={valorTotal}
-            onChange={(e) => onValorTotal(e.target.value)}
+            readOnly
             placeholder="0"
-            className={IC}
+            className={`${IC} bg-[#F4F7FA] cursor-not-allowed`}
           />
+          <p className="text-[11px] text-[#6B7A99] mt-1">Calculado según los exámenes seleccionados.</p>
         </div>
         <div>
           <Label text="Movimiento" />
@@ -189,24 +203,20 @@ function PaymentBlock({
         </div>
         <div>
           <Label text="Estado del Pago" />
-          <div className="flex gap-2 h-[38px]">
-            {(["Pagado", "Pendiente por pago"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => onEstadoPago(s)}
-                className={`flex-1 rounded-xl text-[11px] font-bold border transition-all px-2 ${
-                  estadoPago === s
-                    ? s === "Pagado"
-                      ? "bg-emerald-500 text-white border-emerald-500"
-                      : "bg-amber-500 text-white border-amber-500"
-                    : "bg-[#F4F7FA] text-[#6B7A99] border-[rgba(27,43,75,0.1)] hover:bg-gray-100"
-                }`}
-              >
-                {s === "Pagado" ? "Pagado" : "Pendiente"}
-              </button>
-            ))}
+          <div className={`h-[38px] rounded-xl flex items-center justify-center text-[12px] font-bold border ${pagoCompleto ? "bg-emerald-500 text-white border-emerald-500" : "bg-amber-100 text-amber-700 border-amber-200"}`}>
+            {pagoCompleto ? "Pagado" : "Pendiente"}
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-[#F8FAFC] rounded-xl p-3 border border-[rgba(27,43,75,0.06)]">
+          <p className="text-[10px] font-bold text-[#6B7A99] uppercase tracking-wider">Total abonado</p>
+          <p className="text-[16px] font-extrabold text-[#1B2B4B] mt-1">${totalPagado.toLocaleString("es-CO")}</p>
+        </div>
+        <div className={`rounded-xl p-3 border ${pendiente > 0 ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
+          <p className="text-[10px] font-bold text-[#6B7A99] uppercase tracking-wider">Saldo pendiente</p>
+          <p className={`text-[16px] font-extrabold mt-1 ${pendiente > 0 ? "text-amber-700" : "text-emerald-700"}`}>${pendiente.toLocaleString("es-CO")}</p>
         </div>
       </div>
 
@@ -279,11 +289,11 @@ function PaymentBlock({
         <div className="bg-[#F4F7FA] rounded-xl p-3 text-center">
           <p className="text-[10px] font-bold text-[#6B7A99] uppercase tracking-wider mb-1">Estado</p>
           <span className={`inline-block text-[12px] font-bold px-3 py-1 rounded-lg ${
-            estadoPago === "Pagado"
+            pagoCompleto
               ? "bg-emerald-100 text-emerald-700"
               : "bg-amber-100 text-amber-700"
           }`}>
-            {estadoPago}
+            {pagoCompleto ? "Pagado" : "Pendiente por pago"}
           </span>
         </div>
       </div>
@@ -305,9 +315,10 @@ export default function OrderForm({
 }: OrderFormProps) {
   const [activeTab, setActiveTab] = useState("general");
   const [form, setForm] = useState<FormOrden>({
-    fecha: new Date().toISOString().split("T")[0],
+    fecha: currentDate(),
+    horaSolicitud: currentTime(),
     numeroOrden: "", responsable: "GISSEL", cliente: "",
-    tipoServicio: "", descripcionServicio: "", cantidad: "1",
+    tipoServicio: "", descripcionServicio: "", serviciosSeleccionados: [], cantidad: "1",
     nombreMedico: "", matriculaMedico: "",
     mascotas: [newPet()],
     domiciliario: "", horaLlamada: "", horaLlegada: "",
@@ -322,7 +333,14 @@ export default function OrderForm({
 
   // Pet handlers
   const handlePetChange = (id: string, key: keyof PetEntry, val: string) =>
-    upd("mascotas", form.mascotas.map((p) => p.id === id ? { ...p, [key]: val } : p));
+    setForm((currentForm) => ({
+      ...currentForm,
+      mascotas: currentForm.mascotas.map((pet) =>
+        pet.id === id
+          ? { ...pet, [key]: val, ...(key === "especie" ? { raza: "" } : {}) }
+          : pet
+      ),
+    }));
 
   const addPet = () => upd("mascotas", [...form.mascotas, newPet()]);
   const removePet = (id: string) =>
@@ -337,9 +355,10 @@ export default function OrderForm({
 
   const handleClear = () => {
     setForm({
-      fecha: new Date().toISOString().split("T")[0],
+      fecha: currentDate(),
+      horaSolicitud: currentTime(),
       numeroOrden: "", responsable: "GISSEL", cliente: "",
-      tipoServicio: "", descripcionServicio: "", cantidad: "1",
+      tipoServicio: "", descripcionServicio: "", serviciosSeleccionados: [], cantidad: "1",
       nombreMedico: "", matriculaMedico: "",
       mascotas: [newPet()],
       domiciliario: "", horaLlamada: "", horaLlegada: "",
@@ -355,6 +374,28 @@ export default function OrderForm({
   const serviciosDisponibles = form.tipoServicio
     ? SERVICIOS_POR_TIPO[form.tipoServicio] ?? []
     : [];
+
+  const selectedServices = form.serviciosSeleccionados ?? (form.descripcionServicio ? [form.descripcionServicio] : []);
+
+  useEffect(() => {
+    const total = calculateServiceTotal(form.tipoServicio, selectedServices);
+    const totalValue = total ? String(total) : "";
+    if (form.valorTotal !== totalValue) upd("valorTotal", totalValue);
+    const paymentTotal = form.pagos.reduce((sum, payment) => sum + Number(payment.valor || 0), 0);
+    const nextStatus = total > 0 && paymentTotal >= total ? "Pagado" : "Pendiente por pago";
+    if (form.estadoPago !== nextStatus) upd("estadoPago", nextStatus);
+  }, [form.tipoServicio, form.serviciosSeleccionados, form.descripcionServicio, form.pagos, form.valorTotal, form.estadoPago]);
+
+  const toggleService = (serviceName: string) => {
+    const nextServices = selectedServices.includes(serviceName)
+      ? selectedServices.filter((name) => name !== serviceName)
+      : [...selectedServices, serviceName];
+    setForm((currentForm) => ({
+      ...currentForm,
+      serviciosSeleccionados: nextServices,
+      descripcionServicio: nextServices.join(", "),
+    }));
+  };
 
   const tabHasError = (tabId: string) => {
     if (tabId === "general")   return !!(errors.cliente || errors.tipoServicio || errors.descripcionServicio);
@@ -455,21 +496,17 @@ export default function OrderForm({
             <div className="grid grid-cols-4 gap-4">
               <div>
                 <Label text="Fecha" required />
-                <input type="date" value={form.fecha} onChange={(e) => upd("fecha", e.target.value)} className={IC} />
+                <input type="date" value={form.fecha} readOnly className={`${IC} bg-[#F4F7FA] cursor-not-allowed`} />
               </div>
               <div>
-                <Label text="N° Orden" />
-                <input value={form.numeroOrden} onChange={(e) => upd("numeroOrden", e.target.value)} placeholder="106025" className={IC} />
+                <Label text="Hora de Solicitud" required />
+                <input type="time" value={form.horaSolicitud} readOnly className={`${IC} bg-[#F4F7FA] cursor-not-allowed`} />
               </div>
               <div>
-                <Label text="Responsable del Registro" required />
+                <Label text="Responsable" required />
                 <select value={form.responsable} onChange={(e) => upd("responsable", e.target.value)} className={IC}>
                   {RESPONSABLES.map((r) => <option key={r}>{r}</option>)}
                 </select>
-              </div>
-              <div>
-                <Label text="Cantidad de Servicios" required />
-                <input type="number" min="1" value={form.cantidad} onChange={(e) => upd("cantidad", e.target.value)} className={IC} />
               </div>
             </div>
 
@@ -486,51 +523,24 @@ export default function OrderForm({
               <FieldErr msg={errors.cliente} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <Label text="Tipo de Servicio" required />
-                <select
-                  value={form.tipoServicio}
-                  onChange={(e) => { upd("tipoServicio", e.target.value); upd("descripcionServicio", ""); }}
-                  className={`${IC} ${errors.tipoServicio ? "border-rose-400" : ""}`}
-                >
-                  <option value="">Seleccionar tipo...</option>
-                  {Object.keys(SERVICIOS_POR_TIPO).map((t) => <option key={t}>{t}</option>)}
+                <Label text="Domiciliario" />
+                <select value={form.domiciliario} onChange={(e) => upd("domiciliario", e.target.value)} className={IC}>
+                  <option value="">Sin domicilio</option>
+                  {DOMICILIARIOS.map((d) => <option key={d}>{d}</option>)}
                 </select>
-                <FieldErr msg={errors.tipoServicio} />
               </div>
               <div>
-                <Label text="Descripción del Servicio" required />
-                <select
-                  value={form.descripcionServicio}
-                  onChange={(e) => upd("descripcionServicio", e.target.value)}
-                  disabled={!form.tipoServicio}
-                  className={`${IC} ${errors.descripcionServicio ? "border-rose-400" : ""} disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <option value="">
-                    {form.tipoServicio ? "Seleccionar descripción..." : "Seleccione primero el tipo"}
-                  </option>
-                  {serviciosDisponibles.map((s) => <option key={s}>{s}</option>)}
-                </select>
-                <FieldErr msg={errors.descripcionServicio} />
+                <Label text="Hora de Llegada" />
+                <input type="time" value={form.horaLlegada} onChange={(e) => upd("horaLlegada", e.target.value)} className={IC} />
               </div>
-            </div>
-
-            {/* Médico Veterinario */}
-            <div className="pt-2 border-t border-[rgba(27,43,75,0.06)]">
-              <p className="text-[11px] font-bold text-[#1B2B4B] uppercase tracking-widest mb-3 flex items-center gap-2">
-                <span>🩺</span> Médico Veterinario
-                <span className="flex-1 h-px bg-[rgba(27,43,75,0.08)]" />
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label text="Nombre del Médico Veterinario" />
-                  <input value={form.nombreMedico} onChange={(e) => upd("nombreMedico", e.target.value)} placeholder="Dr. Nombre Apellido" className={IC} />
-                </div>
-                <div>
-                  <Label text="Matrícula Profesional" />
-                  <input value={form.matriculaMedico} onChange={(e) => upd("matriculaMedico", e.target.value)} placeholder="MP-12345" className={IC} />
-                </div>
+              <div>
+                <Label text="Prioridad" />
+                <select value={form.prioridad} onChange={(e) => upd("prioridad", e.target.value as FormOrden["prioridad"])} className={IC}>
+                  <option>Normal</option>
+                  <option>Prioritaria</option>
+                </select>
               </div>
             </div>
             <Actions />
@@ -540,6 +550,48 @@ export default function OrderForm({
         {/* ── Tab: Mascotas ──────────────────────────────────────────── */}
         {activeTab === "mascotas" && (
           <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label text="N° Orden" />
+                <input value={form.numeroOrden} onChange={(e) => upd("numeroOrden", e.target.value)} placeholder="106025" className={IC} />
+              </div>
+              <div>
+                <Label text="Tipo de Servicio" required />
+                <select
+                  value={form.tipoServicio}
+                  onChange={(e) => setForm((currentForm) => ({ ...currentForm, tipoServicio: e.target.value, descripcionServicio: "", serviciosSeleccionados: [], valorTotal: "" }))}
+                  className={`${IC} ${errors.tipoServicio ? "border-rose-400" : ""}`}
+                >
+                  <option value="">Seleccionar tipo...</option>
+                  {Object.keys(SERVICIOS_POR_TIPO).map((t) => <option key={t}>{t}</option>)}
+                </select>
+                <FieldErr msg={errors.tipoServicio} />
+              </div>
+              <div>
+                <Label text="Descripción Servicios" required />
+                <div className={`${IC} max-h-48 overflow-y-auto space-y-2 ${errors.descripcionServicio ? "border-rose-400" : ""} ${!form.tipoServicio ? "opacity-50" : ""}`}>
+                  {form.tipoServicio ? serviciosDisponibles.map((service) => (
+                    <label key={service.nombre} className="flex items-start gap-2 text-[12px] cursor-pointer">
+                      <input type="checkbox" checked={selectedServices.includes(service.nombre)} onChange={() => toggleService(service.nombre)} className="mt-0.5 accent-[#2BB5C3]" />
+                      <span><span className="font-semibold">{service.nombre}</span> <span className="text-[#6B7A99]">({service.categoria}) - ${service.precio.toLocaleString("es-CO")}</span></span>
+                    </label>
+                  )) : <span className="text-[#6B7A99]">Seleccione primero el tipo de servicio</span>}
+                </div>
+                <FieldErr msg={errors.descripcionServicio} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label text="Médico Veterinario" />
+                <input value={form.nombreMedico} onChange={(e) => upd("nombreMedico", e.target.value)} placeholder="Nombre del médico" className={IC} />
+              </div>
+              <div>
+                <Label text="M.P." />
+                <input value={form.matriculaMedico} onChange={(e) => upd("matriculaMedico", e.target.value)} placeholder="MP-12345" className={IC} />
+              </div>
+            </div>
+
             <div className="flex items-center justify-between mb-2">
               <p className="text-[13px] text-[#6B7A99]">
                 <span className="font-bold text-[#1B2B4B]">{form.mascotas.length}</span> mascota{form.mascotas.length !== 1 ? "s" : ""} en esta orden
@@ -570,85 +622,16 @@ export default function OrderForm({
           </div>
         )}
 
-        {/* ── Tab: Domicilio ──────────────────────────────────────────── */}
-        {activeTab === "domicilio" && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label text="Domiciliario" />
-                <select value={form.domiciliario} onChange={(e) => upd("domiciliario", e.target.value)} className={IC}>
-                  <option value="">Sin domicilio</option>
-                  {DOMICILIARIOS.map((d) => <option key={d}>{d}</option>)}
-                </select>
-              </div>
-              <div>
-                <Label text="Hora de Llamada" />
-                <input type="time" value={form.horaLlamada} onChange={(e) => upd("horaLlamada", e.target.value)} className={IC} />
-              </div>
-              <div>
-                <Label text="Hora de Llegada" />
-                <input type="time" value={form.horaLlegada} onChange={(e) => upd("horaLlegada", e.target.value)} className={IC} />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t border-[rgba(27,43,75,0.06)]">
-              <p className="text-[11px] font-bold text-[#1B2B4B] uppercase tracking-widest mb-3 flex items-center gap-2">
-                <span>🚦</span> Prioridad
-                <span className="flex-1 h-px bg-[rgba(27,43,75,0.08)]" />
-              </p>
-              <div className="flex gap-3">
-                {(["Normal", "Prioritaria"] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => upd("prioridad", p)}
-                    className={`flex-1 py-3 rounded-xl text-[13px] font-bold border-2 transition-all ${
-                      form.prioridad === p
-                        ? p === "Normal"
-                          ? "border-[#2BB5C3] bg-[#2BB5C3]/10 text-[#2BB5C3]"
-                          : "border-[#E8449A] bg-[#E8449A]/10 text-[#E8449A]"
-                        : "border-[rgba(27,43,75,0.1)] text-[#6B7A99] hover:bg-gray-50"
-                    }`}
-                  >
-                    {p === "Normal" ? "🟢 Normal" : "🔴 Prioritaria"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-[#F8FAFC] rounded-xl p-4 border border-[rgba(27,43,75,0.06)]">
-              <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Hora de envío por mascota</p>
-              {form.mascotas.map((pet, i) => (
-                <div key={pet.id} className="flex items-center gap-3 py-1.5 border-b border-[rgba(27,43,75,0.06)] last:border-0">
-                  <span className="text-[12px] font-semibold text-[#1B2B4B] flex-1">
-                    {pet.nombre || `Mascota ${i + 1}`}
-                  </span>
-                  <span className="text-[12px] text-[#6B7A99]">
-                    {pet.horaEnvio || <span className="italic">Sin hora asignada</span>}
-                  </span>
-                </div>
-              ))}
-              <p className="text-[10px] text-[#6B7A99] mt-2">
-                Las horas de envío se configuran en la pestaña Mascotas.
-              </p>
-            </div>
-            <Actions />
-          </div>
-        )}
-
         {/* ── Tab: Pago ──────────────────────────────────────────── */}
         {activeTab === "pago" && (
           <div className="space-y-4">
             <PaymentBlock
               pagos={form.pagos}
               valorTotal={form.valorTotal}
-              estadoPago={form.estadoPago}
               movimiento={form.movimiento}
               onAddRow={addPayRow}
               onUpdateRow={updatePayRow}
               onRemoveRow={removePayRow}
-              onValorTotal={(v) => upd("valorTotal", v)}
-              onEstadoPago={(v) => upd("estadoPago", v)}
               onMovimiento={(v) => upd("movimiento", v)}
             />
             <Actions />
