@@ -6,9 +6,27 @@ import ServiceCatalog from "../Pages/ServiceCatalog/ServiceCatalog";
 import Services from "../Pages/Services/Services";
 import Veterinary from "../Pages/Veterinary/Veterinary";
 import type { Cliente, Medico, Responsable } from "../types";
-import { SERVICIOS_POR_TIPO, type ServicioCatalogo } from "../constants/services";
+import { SERVICIOS_PAQUETES, SERVICIOS_POR_TIPO, type ServicioCatalogo } from "../constants/services";
 
 type ModuleKey = "services" | "clients" | "veterinary" | "manager" | "catalog";
+
+function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
+  const cleaned: Record<string, ServicioCatalogo[]> = {};
+
+  Object.entries(catalog).forEach(([category, services]) => {
+    services.forEach((service) => {
+      if (SERVICIOS_PAQUETES.some((pack) => pack.nombre === service.nombre)) return;
+
+      const nextCategory = category === "Combos" ? "Paquetes" : category;
+
+      cleaned[nextCategory] = [...(cleaned[nextCategory] ?? []), { ...service, categoria: nextCategory }];
+    });
+  });
+
+  cleaned.Paquete = SERVICIOS_PAQUETES;
+
+  return cleaned;
+}
 
 const initialClientes: Cliente[] = [
   {
@@ -104,7 +122,7 @@ function App() {
     if (!saved) return SERVICIOS_POR_TIPO;
 
     try {
-      return JSON.parse(saved) as Record<string, ServicioCatalogo[]>;
+      return cleanServiceCatalog(JSON.parse(saved) as Record<string, ServicioCatalogo[]>);
     } catch {
       return SERVICIOS_POR_TIPO;
     }

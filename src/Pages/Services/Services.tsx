@@ -3,7 +3,7 @@ import StatsCards from "../../Components/StatsCards/StatsCards";
 import MainLayout from "../../Layout/MainLayout";
 import type { AuditEntry, FormOrden, Orden } from "../../types";
 import OrderForm from "../../Components/OrderForm/OrderForm";
-import { nextFactura, nextNumeroOrden } from "../../constants";
+import { nextFactura } from "../../constants";
 import { AuditModal, ConfirmModal, ViewOrderModal } from "../../Components/Modals/Modals";
 import ServiceHistory from "../../Components/ServiceHistory/ServiceHistory";
 import type { SidebarItem } from "../../Components/Slidebar/Slidebar";
@@ -93,7 +93,7 @@ export default function Services({ activeModule, onSelectModule, sidebarItems, c
                 const pagos = form.pagos.filter((payment) => payment.mascotaId === pet.id || (!payment.mascotaId && pet.id === validPets[0].id));
                 return {
                     ...form,
-                    numeroOrden: pet.numeroOrden || nextNumeroOrden(),
+                    numeroOrden: pet.numeroOrden,
                     mascotas: [pet],
                     pagos,
                     id: crypto.randomUUID(),

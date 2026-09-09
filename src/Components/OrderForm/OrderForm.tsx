@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormOrden, PaymentRow, PetEntry } from "../../types";
-import { AlertCircle, ChevronDown, ChevronUp, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, Plus, RefreshCw, Search, Save, Trash2, X } from "lucide-react";
 import { CLIENTES, currentDate, currentTime, DOMICILIARIOS, IC, MEDIOS_PAGO, newPaymentRow, newPet, RESPONSABLES } from "../../constants";
 import { BREEDS_BY_SPECIES, SPECIES } from "../../constants/breeds";
 import { calculateServiceTotal, type ServicioCatalogo } from "../../constants/services";
@@ -43,7 +43,7 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
                 </div>
                 <span className="flex-1 text-[13px] font-semibold text-[#1B2B4B]">
                   <span className="block">{pet.nombre || `Mascota ${index + 1}`}</span>
-                  <span className="block text-[10px] font-mono font-normal text-[#6B7A99]">Orden {pet.numeroOrden}</span>
+                  <span className="block text-[10px] font-mono font-normal text-[#6B7A99]">Orden {pet.numeroOrden || "Sin asignar"}</span>
                 </span>
                 {
                 
@@ -66,6 +66,10 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
             {
               open && (
                 <div className="p-4 grid grid-cols-4 gap-3 border-t border-[rgba(27, 43, 75, 0.06)]">
+                  <div className="col-span-2">
+                    <Label text="N° Orden asignado por laboratorio" />
+                    <input value={pet.numeroOrden} onChange={(e) => upd("numeroOrden", e.target.value)} placeholder="Ej: 106025" className={IC} />
+                  </div>
                     <div className="col-span-2">
                         <Label text="Nombre de la Mascota" required/>
                         <input value={pet.nombre} onChange={(e) => upd("nombre", e.target.value)} placeholder="Ej: Rocko" className={IC} />
@@ -325,6 +329,7 @@ export default function OrderForm({
   factura, editingId, errors, catalogo, onSave, onClear, onCancelEdit,
 }: OrderFormProps) {
   const [activeTab, setActiveTab] = useState("general");
+  const [serviceSearch, setServiceSearch] = useState("");
   const [form, setForm] = useState<FormOrden>({
     fecha: currentDate(),
     horaSolicitud: currentTime(),
@@ -389,6 +394,7 @@ export default function OrderForm({
       estadoPago: "Pendiente por pago", movimiento: "Ingreso",
       observaciones: "",
     });
+    setServiceSearch("");
     setActiveTab("general");
     onClear();
   };
@@ -396,6 +402,11 @@ export default function OrderForm({
   const serviciosDisponibles = form.tipoServicio
     ? catalogo[form.tipoServicio] ?? []
     : [];
+
+  const serviciosFiltrados = serviciosDisponibles.filter((service) => {
+    const query = serviceSearch.trim().toLowerCase();
+    return !query || `${service.nombre} ${service.categoria}`.toLowerCase().includes(query);
+  });
 
   const selectedServices = form.serviciosSeleccionados ?? (form.descripcionServicio ? [form.descripcionServicio] : []);
 
@@ -575,13 +586,18 @@ export default function OrderForm({
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label text="N° Orden" />
-                <input value="Se asigna una por mascota" readOnly className={`${IC} bg-[#F4F7FA] cursor-not-allowed`} />
+                <p className="text-[12px] text-[#6B7A99] bg-[#F4F7FA] border border-[rgba(27,43,75,0.1)] rounded-xl px-3 py-2.5">
+                  Se registra dentro de cada mascota
+                </p>
               </div>
               <div>
                 <Label text="Tipo de Servicio" required />
                 <select
                   value={form.tipoServicio}
-                  onChange={(e) => setForm((currentForm) => ({ ...currentForm, tipoServicio: e.target.value, descripcionServicio: "", serviciosSeleccionados: [], valorTotal: "" }))}
+                  onChange={(e) => {
+                    setServiceSearch("");
+                    setForm((currentForm) => ({ ...currentForm, tipoServicio: e.target.value, descripcionServicio: "", serviciosSeleccionados: [], valorTotal: "" }));
+                  }}
                   className={`${IC} ${errors.tipoServicio ? "border-rose-400" : ""}`}
                 >
                   <option value="">Seleccionar tipo...</option>
@@ -591,13 +607,28 @@ export default function OrderForm({
               </div>
               <div>
                 <Label text="Descripción Servicios" required />
-                <div className={`${IC} max-h-48 overflow-y-auto space-y-2 ${errors.descripcionServicio ? "border-rose-400" : ""} ${!form.tipoServicio ? "opacity-50" : ""}`}>
-                  {form.tipoServicio ? serviciosDisponibles.map((service) => (
-                    <label key={service.nombre} className="flex items-start gap-2 text-[12px] cursor-pointer">
-                      <input type="checkbox" checked={selectedServices.includes(service.nombre)} onChange={() => toggleService(service.nombre)} className="mt-0.5 accent-[#2BB5C3]" />
-                      <span><span className="font-semibold">{service.nombre}</span> <span className="text-[#6B7A99]">({service.categoria}) - ${service.precio.toLocaleString("es-CO")}</span></span>
-                    </label>
-                  )) : <span className="text-[#6B7A99]">Seleccione primero el tipo de servicio</span>}
+                <div className={`${IC} p-0 overflow-hidden ${errors.descripcionServicio ? "border-rose-400" : ""} ${!form.tipoServicio ? "opacity-50" : ""}`}>
+                  {form.tipoServicio ? (
+                    <>
+                      <div className="relative border-b border-[rgba(27,43,75,0.08)]">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7A99]" />
+                        <input
+                          value={serviceSearch}
+                          onChange={(e) => setServiceSearch(e.target.value)}
+                          placeholder="Buscar examen, por ejemplo: cuadro, cre..."
+                          className="w-full bg-transparent pl-9 pr-3 py-2 text-[12px] focus:outline-none"
+                        />
+                      </div>
+                      <div className="max-h-40 overflow-y-auto p-3 space-y-2">
+                        {serviciosFiltrados.length > 0 ? serviciosFiltrados.map((service) => (
+                          <label key={service.nombre} className="flex items-start gap-2 text-[12px] cursor-pointer">
+                            <input type="checkbox" checked={selectedServices.includes(service.nombre)} onChange={() => toggleService(service.nombre)} className="mt-0.5 accent-[#2BB5C3]" />
+                            <span><span className="font-semibold">{service.nombre}</span> <span className="text-[#6B7A99]">({service.categoria}) - ${service.precio.toLocaleString("es-CO")}</span></span>
+                          </label>
+                        )) : <span className="text-[#6B7A99]">No hay servicios que coincidan con la búsqueda.</span>}
+                      </div>
+                    </>
+                  ) : <span className="block p-3 text-[#6B7A99]">Seleccione primero el tipo de servicio</span>}
                 </div>
                 <FieldErr msg={errors.descripcionServicio} />
               </div>

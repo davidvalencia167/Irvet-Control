@@ -44,12 +44,9 @@ export const currentTime = () => new Date().toTimeString().slice(0, 5);
 let _counter = 30000;
 export const nextFactura = () => `FAC-${++_counter}`;
 
-let _orderCounter = 106024;
-export const nextNumeroOrden = () => String(++_orderCounter);
-
 export const newPet = (): PetEntry => ({
   id: crypto.randomUUID(),
-  numeroOrden: nextNumeroOrden(),
+  numeroOrden: "",
   nombre: "", propietario: "", telefono: "", correo: "",
   especie: "", raza: "", sexo: "", edad: "", edadAnios: "", edadMeses: "",
   horaEnvio: "", estadoMuestra: "Normal",
