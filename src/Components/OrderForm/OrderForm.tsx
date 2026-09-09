@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FormOrden, PaymentRow, PetEntry } from "../../types";
 import { AlertCircle, ChevronDown, ChevronUp, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
-import { CLIENTES, currentDate, currentTime, DOMICILIARIOS, IC, MEDIOS_PAGO, newPaymentRow, newPet, RESPONSABLES, SERVICIOS_POR_TIPO } from "../../constants";
+import { CLIENTES, currentDate, currentTime, DOMICILIARIOS, IC, MEDIOS_PAGO, newPaymentRow, newPet, RESPONSABLES } from "../../constants";
 import { BREEDS_BY_SPECIES, SPECIES } from "../../constants/breeds";
-import { calculateServiceTotal } from "../../constants/services";
+import { calculateServiceTotal, type ServicioCatalogo } from "../../constants/services";
 
 function Label({ text, required }: { text: string; required?: boolean }) {
   return (
@@ -42,7 +42,8 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
                     {index + 1}
                 </div>
                 <span className="flex-1 text-[13px] font-semibold text-[#1B2B4B]">
-                    {pet.nombre || `Mascota ${index + 1}`}
+                  <span className="block">{pet.nombre || `Mascota ${index + 1}`}</span>
+                  <span className="block text-[10px] font-mono font-normal text-[#6B7A99]">Orden {pet.numeroOrden}</span>
                 </span>
                 {
                 
@@ -148,13 +149,15 @@ function PetCard({pet, index, onChange, onRemove, canRemove}: {
 }
 
 function PaymentBlock({
-  pagos, valorTotal, movimiento,
+  pagos, valorTotal, movimiento, numeroOrden, mascotaNombre,
   onAddRow, onUpdateRow, onRemoveRow,
   onMovimiento,
 }: {
   pagos: PaymentRow[];
   valorTotal: string;
   movimiento: "Ingreso" | "Gasto";
+  numeroOrden: string;
+  mascotaNombre: string;
   onAddRow: () => void;
   onUpdateRow: (id: string, key: keyof PaymentRow, val: string) => void;
   onRemoveRow: (id: string) => void;
@@ -167,6 +170,13 @@ function PaymentBlock({
 
   return (
     <div className="space-y-5">
+      <div className="flex items-center justify-between rounded-xl bg-[#F8FAFC] border border-[rgba(27,43,75,0.06)] px-4 py-3">
+        <div>
+          <p className="text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider">Orden por paciente</p>
+          <p className="text-[13px] font-extrabold text-[#1B2B4B] mt-0.5">{numeroOrden} · {mascotaNombre || "Sin nombre"}</p>
+        </div>
+        <span className="text-[11px] font-bold text-[#2BB5C3] bg-[#2BB5C3]/10 px-2 py-1 rounded-lg">Pago independiente</span>
+      </div>
       {/* Valor total de la orden */}
       <div className="grid grid-cols-3 gap-4">
         <div>
@@ -305,13 +315,14 @@ interface OrderFormProps {
   factura: string;
   editingId: string | null;
   errors: Record<string, string>;
+  catalogo: Record<string, ServicioCatalogo[]>;
   onSave: (form: FormOrden) => void;
   onClear: () => void;
   onCancelEdit: () => void;
 }
 
 export default function OrderForm({
-  factura, editingId, errors, onSave, onClear, onCancelEdit,
+  factura, editingId, errors, catalogo, onSave, onClear, onCancelEdit,
 }: OrderFormProps) {
   const [activeTab, setActiveTab] = useState("general");
   const [form, setForm] = useState<FormOrden>({
@@ -342,12 +353,23 @@ export default function OrderForm({
       ),
     }));
 
-  const addPet = () => upd("mascotas", [...form.mascotas, newPet()]);
+  const addPet = () => {
+    const pet = newPet();
+    setForm((currentForm) => ({
+      ...currentForm,
+      mascotas: [...currentForm.mascotas, pet],
+      pagos: [...currentForm.pagos, newPaymentRow(pet.id)],
+    }));
+  };
   const removePet = (id: string) =>
-    upd("mascotas", form.mascotas.filter((p) => p.id !== id));
+    setForm((currentForm) => ({
+      ...currentForm,
+      mascotas: currentForm.mascotas.filter((pet) => pet.id !== id),
+      pagos: currentForm.pagos.filter((payment) => payment.mascotaId !== id),
+    }));
 
   // Payment handlers
-  const addPayRow = () => upd("pagos", [...form.pagos, newPaymentRow()]);
+  const addPayRow = (mascotaId?: string) => upd("pagos", [...form.pagos, newPaymentRow(mascotaId)]);
   const updatePayRow = (id: string, key: keyof PaymentRow, val: string) =>
     upd("pagos", form.pagos.map((r) => r.id === id ? { ...r, [key]: val } : r));
   const removePayRow = (id: string) =>
@@ -372,19 +394,19 @@ export default function OrderForm({
   };
 
   const serviciosDisponibles = form.tipoServicio
-    ? SERVICIOS_POR_TIPO[form.tipoServicio] ?? []
+    ? catalogo[form.tipoServicio] ?? []
     : [];
 
   const selectedServices = form.serviciosSeleccionados ?? (form.descripcionServicio ? [form.descripcionServicio] : []);
 
   useEffect(() => {
-    const total = calculateServiceTotal(form.tipoServicio, selectedServices);
+    const total = calculateServiceTotal(form.tipoServicio, selectedServices, catalogo);
     const totalValue = total ? String(total) : "";
     if (form.valorTotal !== totalValue) upd("valorTotal", totalValue);
     const paymentTotal = form.pagos.reduce((sum, payment) => sum + Number(payment.valor || 0), 0);
     const nextStatus = total > 0 && paymentTotal >= total ? "Pagado" : "Pendiente por pago";
     if (form.estadoPago !== nextStatus) upd("estadoPago", nextStatus);
-  }, [form.tipoServicio, form.serviciosSeleccionados, form.descripcionServicio, form.pagos, form.valorTotal, form.estadoPago]);
+  }, [form.tipoServicio, form.serviciosSeleccionados, form.descripcionServicio, form.pagos, form.valorTotal, form.estadoPago, catalogo]);
 
   const toggleService = (serviceName: string) => {
     const nextServices = selectedServices.includes(serviceName)
@@ -446,7 +468,7 @@ export default function OrderForm({
             {editingId ? "Editar Orden" : "Nueva Orden de Servicio"}
           </h2>
           <p className="text-white/45 text-[11px] mt-0.5">
-            Una orden puede incluir varias mascotas, múltiples servicios y pagos combinados
+            Cada mascota se registra como una orden y un pago independiente
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -553,7 +575,7 @@ export default function OrderForm({
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label text="N° Orden" />
-                <input value={form.numeroOrden} onChange={(e) => upd("numeroOrden", e.target.value)} placeholder="106025" className={IC} />
+                <input value="Se asigna una por mascota" readOnly className={`${IC} bg-[#F4F7FA] cursor-not-allowed`} />
               </div>
               <div>
                 <Label text="Tipo de Servicio" required />
@@ -563,7 +585,7 @@ export default function OrderForm({
                   className={`${IC} ${errors.tipoServicio ? "border-rose-400" : ""}`}
                 >
                   <option value="">Seleccionar tipo...</option>
-                  {Object.keys(SERVICIOS_POR_TIPO).map((t) => <option key={t}>{t}</option>)}
+                  {Object.keys(catalogo).map((t) => <option key={t}>{t}</option>)}
                 </select>
                 <FieldErr msg={errors.tipoServicio} />
               </div>
@@ -594,7 +616,7 @@ export default function OrderForm({
 
             <div className="flex items-center justify-between mb-2">
               <p className="text-[13px] text-[#6B7A99]">
-                <span className="font-bold text-[#1B2B4B]">{form.mascotas.length}</span> mascota{form.mascotas.length !== 1 ? "s" : ""} en esta orden
+                <span className="font-bold text-[#1B2B4B]">{form.mascotas.length}</span> orden{form.mascotas.length !== 1 ? "es" : ""} por paciente
               </p>
               <button
                 type="button"
@@ -625,15 +647,20 @@ export default function OrderForm({
         {/* ── Tab: Pago ──────────────────────────────────────────── */}
         {activeTab === "pago" && (
           <div className="space-y-4">
-            <PaymentBlock
-              pagos={form.pagos}
-              valorTotal={form.valorTotal}
-              movimiento={form.movimiento}
-              onAddRow={addPayRow}
-              onUpdateRow={updatePayRow}
-              onRemoveRow={removePayRow}
-              onMovimiento={(v) => upd("movimiento", v)}
-            />
+            {form.mascotas.map((pet, index) => (
+              <PaymentBlock
+                key={pet.id}
+                pagos={form.pagos.filter((payment) => payment.mascotaId === pet.id || (!payment.mascotaId && index === 0))}
+                valorTotal={form.valorTotal}
+                movimiento={form.movimiento}
+                numeroOrden={pet.numeroOrden}
+                mascotaNombre={pet.nombre}
+                onAddRow={() => addPayRow(pet.id)}
+                onUpdateRow={updatePayRow}
+                onRemoveRow={removePayRow}
+                onMovimiento={(v) => upd("movimiento", v)}
+              />
+            ))}
             <Actions />
           </div>
         )}

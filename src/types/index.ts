@@ -1,6 +1,7 @@
 
 export interface PetEntry {
     id: string;
+    numeroOrden: string;
     nombre: string;
     propietario: string;
     telefono: string;
@@ -19,6 +20,7 @@ export interface PaymentRow {
     id: string;
     medio: string;
     valor: string;
+    mascotaId?: string;
 }
 
 export interface AuditEntry {
@@ -59,3 +61,38 @@ export interface Orden {
 }
 
 export type FormOrden = Omit<Orden, "id" | "factura" | "auditoria">;
+
+
+export interface Cliente {
+    id: string;
+    nombre: string;
+    nit: string;
+    representanteLegal: string;
+    direccion: string;
+    telefono: string;
+    correo: string;
+    aniversario: string;
+    estado: "Activo" | "Inactivo";
+    observaciones: string;
+}
+
+export interface Medico {
+    id: string;
+    nombre: string;
+    matricula: string;
+    telefono: string;
+    correo: string;
+    clinica: string;
+    fechaCumpleanos: string;
+    estado: "Activo" | "Inactivo";
+    observaciones: string;
+}
+
+export interface Responsable {
+    id: string;
+    nombre: string;
+    usuario: string;
+    correo: string;
+    rol: "Representante Legal" | "Administrador" | "Asistente Administrativo" | "Domiciliario multiservicios" | "Responsable / Operador";
+    estado: "Activo" | "Inactivo";
+}

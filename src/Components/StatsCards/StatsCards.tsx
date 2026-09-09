@@ -18,7 +18,11 @@ export default function StatsCards({ ordenes }: StatsCardsProps) {
     .reduce((a, o) => a + Number(o.valorTotal || 0), 0);
 
   // Las muestras coaguladas cuentan como domicilio pero no como examen
-  const domicilios = ordenes.filter((o) => o.domiciliario).length;
+  const domicilios = new Set(
+    ordenes
+      .filter((o) => o.domiciliario)
+      .map((o) => `${o.fecha}|${o.cliente}|${o.domiciliario}|${o.horaLlegada}`)
+  ).size;
 
   // Solo ordenes que no son coaguladas para el conteo de servicios
   const serviciosValidos = ordenes.filter(
@@ -47,7 +51,7 @@ export default function StatsCards({ ordenes }: StatsCardsProps) {
       up: false,
     },
     {
-      label: "Servicios Registrados",
+      label: "Órdenes / Pacientes",
       value: String(serviciosValidos),
       icon: ClipboardList,
       iconBg: "bg-indigo-500",

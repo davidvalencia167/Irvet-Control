@@ -3,9 +3,18 @@ import StatsCards from "../../Components/StatsCards/StatsCards";
 import MainLayout from "../../Layout/MainLayout";
 import type { AuditEntry, FormOrden, Orden } from "../../types";
 import OrderForm from "../../Components/OrderForm/OrderForm";
-import { nextFactura } from "../../constants";
+import { nextFactura, nextNumeroOrden } from "../../constants";
 import { AuditModal, ConfirmModal, ViewOrderModal } from "../../Components/Modals/Modals";
 import ServiceHistory from "../../Components/ServiceHistory/ServiceHistory";
+import type { SidebarItem } from "../../Components/Slidebar/Slidebar";
+import type { ServicioCatalogo } from "../../constants/services";
+
+interface ServicesProps {
+    activeModule?: string;
+    onSelectModule?: (moduleKey: string) => void;
+    sidebarItems?: SidebarItem[];
+    catalogo: Record<string, ServicioCatalogo[]>;
+}
 
 const SENSITIVE: Array<keyof FormOrden> = ["tipoServicio", "movimiento"];
 
@@ -31,7 +40,7 @@ function detectChanges(original: Orden, updated: FormOrden): string[] {
   return changes;
 }
 
-export default function Services() {
+export default function Services({ activeModule, onSelectModule, sidebarItems, catalogo }: ServicesProps) {
 
     const [ordenes, setOrdenes] = useState<Orden[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,10 +57,6 @@ export default function Services() {
     const [formKey, setFormKey] = useState(0);
 
     const currentFactura = useRef(nextFactura());
-    const getNextFactura = () => {
-        currentFactura.current = nextFactura();
-        return currentFactura.current;
-    };
 
       const validate = (form: FormOrden): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -81,17 +86,22 @@ export default function Services() {
             }
             commitEdit(editingId, form, []);
         } else {
-            const factura = currentFactura.current;
-            setOrdenes((prev) => [
-                {
+            const validPets = form.mascotas.filter((pet) => pet.nombre.trim());
+            const newOrders = validPets.map((pet) => {
+                const factura = currentFactura.current;
+                currentFactura.current = nextFactura();
+                const pagos = form.pagos.filter((payment) => payment.mascotaId === pet.id || (!payment.mascotaId && pet.id === validPets[0].id));
+                return {
                     ...form,
+                    numeroOrden: pet.numeroOrden || nextNumeroOrden(),
+                    mascotas: [pet],
+                    pagos,
                     id: crypto.randomUUID(),
                     factura,
                     auditoria: [],
-                },
-                ...prev,
-            ]);
-            getNextFactura();
+                };
+            });
+            setOrdenes((prev) => [...newOrders.reverse(), ...prev]);
             setFormKey((k) => k + 1);
             setEditingId(null);
         }
@@ -169,10 +179,18 @@ export default function Services() {
             )
         }
 
-        <MainLayout ordenes={ordenes} editingId={editingId} onNewOrder={handleNewOrder}>
+        <MainLayout
+            ordenes={ordenes}
+            editingId={editingId}
+            onNewOrder={handleNewOrder}
+            title="Registro de Servicios"
+            activeModule={activeModule}
+            onSelectModule={onSelectModule}
+            sidebarItems={sidebarItems}
+        >
             <StatsCards ordenes={ordenes}/>
             <div ref={formRef}>
-                <OrderForm key={formKey} factura={currentFactura.current} editingId={editingId} errors={errors} onSave={handleSave} onClear={handleNewOrder} onCancelEdit={handleNewOrder}/>
+                <OrderForm key={formKey} factura={currentFactura.current} editingId={editingId} errors={errors} catalogo={catalogo} onSave={handleSave} onClear={handleNewOrder} onCancelEdit={handleNewOrder}/>
             </div>
 
             <ServiceHistory ordenes={ordenes} onView={setViewOrden} onEdit={handleEdit} onDeleteRequest={setDeleteId}/>

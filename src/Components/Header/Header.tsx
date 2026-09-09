@@ -1,16 +1,25 @@
 import { Search, Bell, Plus, ChevronDown } from "lucide-react";
 
 interface HeaderProps {
-  editingId: string | null;
-  onNewOrder: () => void;
+  editingId?: string | null;
+  onNewOrder?: () => void;
+  title?: string;
+  showNewOrderButton?: boolean;
 }
 
-export default function Header({ editingId, onNewOrder }: HeaderProps) {
+export default function Header({
+  editingId,
+  onNewOrder,
+  title,
+  showNewOrderButton = true,
+}: HeaderProps) {
+  const heading = title ?? (editingId ? "✏️ Editando Orden" : "Registro de Servicios");
+
   return (
     <header className="h-[60px] bg-white border-b border-[rgba(27,43,75,0.08)] flex items-center px-6 gap-4 shrink-0">
       <div className="flex-1">
         <h1 className="text-base font-extrabold text-[#1B2B4B] tracking-tight">
-          {editingId ? "✏️ Editando Orden" : "Registro de Servicios"}
+          {heading}
         </h1>
       </div>
 
@@ -35,14 +44,16 @@ export default function Header({ editingId, onNewOrder }: HeaderProps) {
           <ChevronDown size={13} className="text-gray-400" />
         </div>
 
-        <button
-          onClick={onNewOrder}
-          className="flex items-center gap-1.5 text-white text-[13px] font-bold px-4 py-2 rounded-xl transition-colors"
-          style={{ background: "#E8449A", boxShadow: "0 4px 12px rgba(232,68,154,0.35)" }}
-        >
-          <Plus size={15} />
-          Nueva Orden
-        </button>
+        {showNewOrderButton && onNewOrder && (
+          <button
+            onClick={onNewOrder}
+            className="flex items-center gap-1.5 text-white text-[13px] font-bold px-4 py-2 rounded-xl transition-colors"
+            style={{ background: "#E8449A", boxShadow: "0 4px 12px rgba(232,68,154,0.35)" }}
+          >
+            <Plus size={15} />
+            Nueva Orden
+          </button>
+        )}
       </div>
     </header>
   );

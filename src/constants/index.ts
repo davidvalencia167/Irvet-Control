@@ -32,7 +32,7 @@ export const MEDIOS_PAGO = [
 ];
 
 export const DOMICILIARIOS = ["Gissel", "Elder", "Brayan"];
-export const RESPONSABLES  = ["Brayan", "Carlos", "Elder", "Gissel", "Jimmy", "Tatiana"];
+export const RESPONSABLES = ["Elder", "Carlos", "Sebastian", "Brayan", "Gissel"];
 
 export const currentDate = () => {
   const now = new Date();
@@ -44,16 +44,21 @@ export const currentTime = () => new Date().toTimeString().slice(0, 5);
 let _counter = 30000;
 export const nextFactura = () => `FAC-${++_counter}`;
 
+let _orderCounter = 106024;
+export const nextNumeroOrden = () => String(++_orderCounter);
+
 export const newPet = (): PetEntry => ({
   id: crypto.randomUUID(),
+  numeroOrden: nextNumeroOrden(),
   nombre: "", propietario: "", telefono: "", correo: "",
   especie: "", raza: "", sexo: "", edad: "", edadAnios: "", edadMeses: "",
   horaEnvio: "", estadoMuestra: "Normal",
 });
 
-export const newPaymentRow = (): PaymentRow => ({
+export const newPaymentRow = (mascotaId?: string): PaymentRow => ({
   id: crypto.randomUUID(),
   medio: "", valor: "",
+  mascotaId,
 });
 
 export const EMPTY_FORM = () => ({

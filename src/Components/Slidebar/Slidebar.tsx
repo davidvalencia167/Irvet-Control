@@ -1,15 +1,41 @@
-import { ChevronDown, ClipboardList } from "lucide-react";
+import { ChevronDown, ClipboardList, ShieldUser, Stethoscope, Users } from "lucide-react";
 import { ImageWithFallback } from "../../app/components/ui/ImageWithFallback";
 import logoIrvet from "../../assets/logo_irvet.jpeg";
 
-interface SidebarProps {
-  totalOrdenes: number;
+export interface SidebarItem {
+  key: string;
+  label: string;
 }
 
-export default function Sidebar({ totalOrdenes }: SidebarProps) {
+interface SidebarProps {
+  totalOrdenes: number;
+  items?: SidebarItem[];
+  activeModule?: string;
+  onSelectModule?: (moduleKey: string) => void;
+}
+
+const defaultItems: SidebarItem[] = [
+  { key: "services", label: "Registro de Servicios" },
+  { key: "clients", label: "Clientes" },
+  { key: "veterinary", label: "Médicos Veterinarios" },
+  { key: "manager", label: "Responsables" },
+];
+
+export default function Sidebar({
+  totalOrdenes,
+  items = defaultItems,
+  activeModule,
+  onSelectModule,
+}: SidebarProps) {
+  const getMenuIcon = (key: string) => {
+    if (key === "clients") return Users;
+    if (key === "veterinary") return Stethoscope;
+    if (key === "manager") return ShieldUser;
+    return ClipboardList;
+  };
+
   return (
     <aside className="w-[240px] shrink-0 flex flex-col h-full" style={{ background: "#1B2B4B" }}>
-      {/* Logo */}
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl overflow-hidden bg-white flex items-center justify-center shrink-0 p-0.5">
@@ -30,26 +56,40 @@ export default function Sidebar({ totalOrdenes }: SidebarProps) {
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         <p className="text-white/25 text-[10px] font-bold uppercase tracking-widest px-3 mb-2">
           Módulos
         </p>
-        <div
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-white"
-          style={{ background: "#2BB5C3", boxShadow: "0 4px 14px rgba(43,181,195,0.35)" }}
-        >
-          <ClipboardList size={16} strokeWidth={2.5} />
-          Registro de Servicios
-          {totalOrdenes > 0 && (
-            <span className="ml-auto text-[10px] font-bold bg-white/15 px-1.5 py-0.5 rounded-md">
-              {totalOrdenes}
-            </span>
-          )}
-        </div>
+
+        {items.map((item) => {
+          const Icon = getMenuIcon(item.key);
+          const isActive = activeModule === item.key;
+
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => onSelectModule?.(item.key)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-left transition-colors"
+              style={{
+                background: isActive ? "#2BB5C3" : "transparent",
+                boxShadow: isActive ? "0 4px 14px rgba(43,181,195,0.35)" : "none",
+                color: "white",
+              }}
+            >
+              <Icon size={16} strokeWidth={2.5} />
+              {item.label}
+
+              {item.key === "services" && totalOrdenes > 0 && (
+                <span className="ml-auto text-[10px] font-bold bg-white/15 px-1.5 py-0.5 rounded-md">
+                  {totalOrdenes}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
-      {/* User */}
       <div className="px-4 pb-5 pt-3 border-t border-white/10">
         <div className="flex items-center gap-2.5">
           <div

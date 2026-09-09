@@ -78,7 +78,7 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                           <div key={pet.id} className="mb-3 p-3 bg-[#F8FAFC] rounded-xl border border-[rgba(27,43,75,0.06)]">
                             <p className="text-[12px] font-bold text-[#1B2B4B] mb-1.5 flex items-center gap-2">
                               <PawPrint size={12} style={{ color: "#2BB5C3" }} />
-                              Mascota {i + 1}: {pet.nombre || "Sin nombre"}
+                              Mascota {i + 1}: {pet.nombre || "Sin nombre"} · Orden {pet.numeroOrden || orden.numeroOrden}
                               {pet.estadoMuestra === "Coagulada" && (
                                 <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold ml-auto">Coagulada</span>
                               )}

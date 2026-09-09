@@ -34,6 +34,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
         const q = search.toLowerCase();
         const matchQ = 
         !q || 
+        o.numeroOrden.toLowerCase().includes(q) ||
         o.factura.toLowerCase().includes(q) ||
         o.cliente.toLowerCase().includes(q) ||
         o.responsable.toLowerCase().includes(q) ||
@@ -71,7 +72,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="relative flex-1 min-w-[220px]">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                        <input value={search} onChange={(e) => {setSearch(e.target.value); setCurrentPage(1);}} placeholder="Buscar por factura, cliente, tipo de servicio, fecha o responsable..." className="w-full pl-8 pr-4 py-2 text-[13px] bg-[#F4F7FA] border border-[rgba(27,43,75,0.08)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2BB5C3]/25 focus:border-[#2BB5C3] placeholder:text-gray-400 transition-colors" />
+                        <input value={search} onChange={(e) => {setSearch(e.target.value); setCurrentPage(1);}} placeholder="Buscar por orden, factura, cliente, servicio, fecha o responsable..." className="w-full pl-8 pr-4 py-2 text-[13px] bg-[#F4F7FA] border border-[rgba(27,43,75,0.08)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2BB5C3]/25 focus:border-[#2BB5C3] placeholder:text-gray-400 transition-colors" />
                     </div>
 
                     <div className="flex gap-1.5 flex-wrap">
@@ -115,7 +116,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                             <thead>
                                 <tr style={{background: "#F8FAFC"}}>
                                     {[
-                                        "Factura", "Fecha", "Cliente", "Tipo de Servicio",
+                                        "N° Orden", "Factura", "Fecha", "Cliente", "Tipo de Servicio",
                                         "Cant.", "Mascotas", "Responsable", "Estado Pago", "Valor Total", "Acciones", 
                                     ].map((h) => (
                                         <th key={h} className="text-left px-4 py-3 text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider whitespace-nowrap border-b border-[rgba(27, 43, 75, 0.05)]">
@@ -128,6 +129,9 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                 {
                                     paginated.map((o) => (
                                         <tr key={o.id} className="border-b border-[rgba(27, 43, 75, 0.04)] hover:bg-[#F8FAFC] transtion-colors">
+                                            <td className="px-4 py-3">
+                                                <span className="font-mono text-[12px] font-bold" style={{color: "#1B2B4B"}}>{o.numeroOrden || o.mascotas[0]?.numeroOrden || "—"}</span>
+                                            </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-col gap-0.5">
                                                     <span className="font-mono text-[12px] font-bold" style={{color: "#2BB5C3"}}>{o.factura}</span>
@@ -181,7 +185,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                     {
                                         paginated.length === 0 && (
                                             <tr>
-                                                <td colSpan={10} className="px-4 py-10 text-center text-[#6B7A99] text-[13px]">
+                                                <td colSpan={11} className="px-4 py-10 text-center text-[#6B7A99] text-[13px]">
                                                     No se encontraron registros con los filtros aplicados.
                                                 </td>
                                             </tr>

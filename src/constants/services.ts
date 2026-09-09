@@ -85,22 +85,52 @@ const COMBO_PRICES: Record<number, number> = {
   8: 54000, 9: 57000, 13: 110000,
 };
 
-export const calculateServiceTotal = (type: string, selectedNames: string[]) => {
-  const services = SERVICIOS_POR_TIPO[type] ?? [];
-  const selected = services.filter((service) => selectedNames.includes(service.nombre));
-  if (type !== "Laboratorio") return selected.reduce((total, service) => total + service.precio, 0);
-
-  const prehospitalario = selected.find((service) => service.nombre === "13 Exámenes o Prehospitalario");
-  if (prehospitalario) return prehospitalario.precio + selected
-    .filter((service) => service.nombre !== "13 Exámenes o Prehospitalario")
-    .reduce((total, service) => total + service.precio, 0);
-
-  const comboEligible = selected.filter((service) =>
-    service.categoria === "Hematología" || service.precio === 14000
+export const calculateServiceTotal = (
+  type: string,
+  selectedNames: string[],
+  catalogo: Record<string, ServicioCatalogo[]> = SERVICIOS_POR_TIPO
+) => {
+  const services = catalogo[type] ?? [];
+  const selected = services.filter((service) =>
+    selectedNames.includes(service.nombre)
   );
-  const comboSize = comboEligible.length >= 13 ? 13 : Math.min(comboEligible.length, 9);
-  const comboItems = new Set(comboEligible.slice(0, comboSize).map((service) => service.nombre));
+
+  if (type !== "Laboratorio") {
+    return selected.reduce((total, service) => total + service.precio, 0);
+  }
+
+  const prehospitalario = selected.find(
+    (service) => service.nombre === "13 Exámenes o Prehospitalario"
+  );
+
+  if (prehospitalario) {
+    return (
+      prehospitalario.precio +
+      selected
+        .filter(
+          (service) =>
+            service.nombre !== "13 Exámenes o Prehospitalario"
+        )
+        .reduce((total, service) => total + service.precio, 0)
+    );
+  }
+
+  const comboEligible = selected.filter(
+    (service) =>
+      service.categoria === "Hematología" || service.precio === 14000
+  );
+
+  const comboSize =
+    comboEligible.length >= 13
+      ? 13
+      : Math.min(comboEligible.length, 9);
+
+  const comboItems = new Set(
+    comboEligible.slice(0, comboSize).map((service) => service.nombre)
+  );
+
   const comboTotal = COMBO_PRICES[comboSize] ?? 0;
+
   const additionalTotal = selected
     .filter((service) => !comboItems.has(service.nombre))
     .reduce((total, service) => total + service.precio, 0);
