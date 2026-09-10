@@ -40,8 +40,8 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                     </div>
                     <div className="flex items-center gap-2">
                         {
-                          orden.prioridad === "Prioritaria" && (
-                              <span className="text-[11px] font-bold bg-rose-500/20 text-rose-300 px-2 py-1 rounded-lg">🔴 Prioritaria</span>
+                          (orden.prioridad === "Prioritaria" || orden.prioridad === "Urgente") && (
+                              <span className="text-[11px] font-bold bg-rose-500/20 text-rose-300 px-2 py-1 rounded-lg">🔴 {orden.prioridad}</span>
                           )}
                           <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors">
                               <X size={15}/>
@@ -56,6 +56,7 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                           <Row label="N° Orden" value={orden.numeroOrden}/>
                           <Row label="Factura" value={orden.factura}/>
                           <Row label="Responsable" value={orden.responsable}/>
+                          <Row label="Estado de la orden" value={orden.estadoOrden}/>
                     </Section>
 
                     <Section emoji="🏥" title="Cliente">
@@ -91,6 +92,17 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                                 ["Hr. Envío", pet.horaEnvio],
                               ].map(([k, v]) => <Row key={k} label={k} value={v} />)}
                             </div>
+                            {pet.servicios?.length > 0 && (
+                              <div className="mt-3 rounded-xl bg-white border border-[rgba(27,43,75,0.06)] p-3">
+                                <p className="text-[10px] font-bold text-[#6B7A99] uppercase tracking-wider mb-2">Servicios / Exámenes ({pet.servicios.length})</p>
+                                {pet.servicios.map((servicio) => (
+                                  <div key={servicio.id} className="flex justify-between gap-3 text-[11px] py-1 border-b border-[rgba(27,43,75,0.04)] last:border-0">
+                                    <span className="text-[#1B2B4B]">{servicio.tipo} · {servicio.descripcion}</span>
+                                    <span className="font-bold text-[#1B2B4B]">${servicio.precio.toLocaleString("es-CO")}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                     </Section>

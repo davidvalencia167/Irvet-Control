@@ -80,7 +80,7 @@ export const SERVICIOS_ECOGRAFIA: ServicioCatalogo[] = [
 export const SERVICIOS_POR_TIPO: Record<string, ServicioCatalogo[]> = {
   Laboratorio: SERVICIOS_LABORATORIO,
   Paquete: SERVICIOS_PAQUETES,
-  Radiografía: SERVICIOS_RADIOLOGIA,
+  Radiología: SERVICIOS_RADIOLOGIA,
   Ecografía: SERVICIOS_ECOGRAFIA,
 };
 

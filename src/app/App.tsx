@@ -17,7 +17,8 @@ function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
     services.forEach((service) => {
       if (SERVICIOS_PAQUETES.some((pack) => pack.nombre === service.nombre)) return;
 
-      const nextCategory = category === "Combos" ? "Paquetes" : category;
+      const normalizedCategory = category === "Radiografía" ? "Radiología" : category;
+      const nextCategory = normalizedCategory === "Combos" ? "Paquetes" : normalizedCategory;
 
       cleaned[nextCategory] = [...(cleaned[nextCategory] ?? []), { ...service, categoria: nextCategory }];
     });

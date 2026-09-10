@@ -15,12 +15,14 @@ const today = new Date().toISOString().split("T")[0];
 const BADGE: Record<string, string> = {
   Pagado:             "bg-emerald-50 text-emerald-700",
   "Pendiente por pago": "bg-amber-50 text-amber-700",
+  "Pago parcial": "bg-orange-50 text-orange-700",
 };
 
 const TIPO_COLOR: Record<string, string> = {
   Laboratorio:      "bg-indigo-50 text-indigo-700",
   Ecografía:        "bg-violet-50 text-violet-700",
   Radiología:       "bg-sky-50 text-sky-700",
+  Radiografía:      "bg-sky-50 text-sky-700",
   "Consulta Médica":"bg-teal-50 text-teal-700",
 };
 
@@ -45,11 +47,13 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
         if (filter === "semana") {
             const d = new Date(o.fecha);
             const now = new Date();
-            return matchQ && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            const diff = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+            return matchQ && diff >= 0 && diff < 7;
         }
-        if(filter === "prioritaria") return matchQ && o.prioridad === "Prioritaria";
+        if(filter === "prioritaria") return matchQ && (o.prioridad === "Prioritaria" || o.prioridad === "Urgente");
         if(filter === "pagado") return matchQ && o.estadoPago === "Pagado";
-        if(filter === "pendiente") return matchQ && o.estadoPago === "Pendiente por pago";
+        if(filter === "pendiente") return matchQ && o.estadoPago !== "Pagado";
+        if(filter === "recepcion") return matchQ && o.estadoOrden === "Pendiente de recepción";
         return matchQ;
     });
     
@@ -81,9 +85,10 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                             {id: "hoy", label: "Hoy"},
                             {id: "semana", label: "Semana"},
                             {id: "mes", label: "Mes"},
-                            {id: "prioritaria", label: "🔴 Prioritaria"},
+                            {id: "prioritaria", label: "🔴 Prioritaria / Urgente"},
                             {id: "pagado", label: "Pagado"},
-                            {id: "pendiente", label: "Pendiente"},
+                            {id: "pendiente", label: "Pendiente pago"},
+                            {id: "recepcion", label: "Pendiente recepción"},
                         ].map((f) => (
                             <button key={f.id} onClick={() => changeFilter(f.id)} className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transtion-colors ${filter === f.id ? "text-white": "bg-[#F4F7FA] text-[#6B7A99] hover:bg-gray-200"}`} style={filter === f.id ? {background: "#1B2B4B"}: {}}>
                                 {f.label}
@@ -107,7 +112,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                         </div>
                         <p className="text-[#1B2B4B] font-bold text-[15px] mb-1">Sin órdenes registradas</p>
                         <p className="text-[#6B7A99] text-[13px] text-center max-w-xs">
-                            Complete el formulario de arriba y presione <strong>Guardar Orden</strong> para añadir la primera.
+                            Registre la información general y presione <strong>Guardar Solicitud</strong>; podrá completar la orden cuando llegue el domiciliario.
                         </p>
                     </div>
                 ) : (
@@ -117,7 +122,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                 <tr style={{background: "#F8FAFC"}}>
                                     {[
                                         "N° Orden", "Factura", "Fecha", "Cliente", "Tipo de Servicio",
-                                        "Cant.", "Mascotas", "Responsable", "Estado Pago", "Valor Total", "Acciones", 
+                                        "Cant.", "Mascotas", "Responsable", "Estado Orden", "Estado Pago", "Valor Total", "Acciones", 
                                     ].map((h) => (
                                         <th key={h} className="text-left px-4 py-3 text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider whitespace-nowrap border-b border-[rgba(27, 43, 75, 0.05)]">
                                             {h}
@@ -136,8 +141,8 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                                 <div className="flex flex-col gap-0.5">
                                                     <span className="font-mono text-[12px] font-bold" style={{color: "#2BB5C3"}}>{o.factura}</span>
                                                     {
-                                                        o.prioridad === "Prioritaria" && (
-                                                            <span className="text-[10px] font-bold text-rose-500">🔴 Prioritaria</span>
+                                                        (o.prioridad === "Prioritaria" || o.prioridad === "Urgente") && (
+                                                            <span className="text-[10px] font-bold text-rose-500">🔴 {o.prioridad}</span>
                                                         )}
                                                 </div>
                                             </td>
@@ -159,6 +164,9 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                             </td>
                                             <td className="px-4 py-3 text-[12px] text-[#6B7A99] font-medium">{o.responsable}</td>
                                             <td className="px-4 py-3">
+                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${o.estadoOrden === "Completada" ? "bg-emerald-50 text-emerald-700" : o.estadoOrden === "En proceso" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}>{o.estadoOrden}</span>
+                                            </td>
+                                            <td className="px-4 py-3">
                                                 <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${BADGE[o.estadoPago] || "bg-gray-100 text-gray-600"}`}>{o.estadoPago}</span>
                                             </td>
                                             <td className="px-4 py-3">
@@ -171,7 +179,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                                     <button onClick={() => onView(o)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors" title="Ver">
                                                         <Eye size={13}/>
                                                     </button>
-                                                    <button onClick={() => onEdit(o)} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors" title="Editar">
+                                                    <button onClick={() => onEdit(o)} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors" title={o.estadoOrden === "Pendiente de recepción" ? "Completar orden" : "Editar"}>
                                                         <Pencil size={13}/>
                                                     </button>
                                                     <button onClick={() => onDeleteRequest(o.id)} className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors" title="Eliminar">
@@ -185,7 +193,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                     {
                                         paginated.length === 0 && (
                                             <tr>
-                                                <td colSpan={11} className="px-4 py-10 text-center text-[#6B7A99] text-[13px]">
+                                                <td colSpan={12} className="px-4 py-10 text-center text-[#6B7A99] text-[13px]">
                                                     No se encontraron registros con los filtros aplicados.
                                                 </td>
                                             </tr>

@@ -49,35 +49,25 @@ export const newPet = (): PetEntry => ({
   numeroOrden: "",
   nombre: "", propietario: "", telefono: "", correo: "",
   especie: "", raza: "", sexo: "", edad: "", edadAnios: "", edadMeses: "",
-  horaEnvio: "", estadoMuestra: "Normal",
+  horaEnvio: "", estadoMuestra: "Normal", servicios: [],
 });
 
-export const newPaymentRow = (mascotaId?: string): PaymentRow => ({
+export const newPaymentRow = (): PaymentRow => ({
   id: crypto.randomUUID(),
   medio: "", valor: "",
-  mascotaId,
 });
 
 export const EMPTY_FORM = () => ({
   fecha: currentDate(),
   horaSolicitud: currentTime(),
-  numeroOrden: "",
-  responsable: "Gissel",
-  cliente: "",
-  tipoServicio: "",
-  descripcionServicio: "",
-  serviciosSeleccionados: [],
-  cantidad: "1",
-  nombreMedico: "",
-  matriculaMedico: "",
-  mascotas: [newPet()],
-  domiciliario: "",
-  horaLlamada: "",
-  horaLlegada: "",
+  numeroOrden: "", responsable: "GISSEL", cliente: "",
+  tipoServicio: "", descripcionServicio: "", serviciosSeleccionados: [], cantidad: "0",
+  nombreMedico: "", matriculaMedico: "",
+  mascotas: [],
+  domiciliario: "", horaLlamada: currentTime(), horaLlegada: "",
   prioridad: "Normal" as const,
-  valorTotal: "",
-  pagos: [newPaymentRow()],
-  estadoPago: "Pendiente por pago" as const,
-  movimiento: "Ingreso" as const,
+  valorTotal: "", pagos: [],
+  estadoPago: "Pendiente por pago" as const, movimiento: "Ingreso" as const,
   observaciones: "",
+  estadoOrden: "Pendiente de recepción" as const,
 });

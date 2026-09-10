@@ -1,3 +1,11 @@
+export interface ServicioOrden {
+    id: string;
+    tipo: string;
+    descripcion: string;
+    categoria: string;
+    precio: number;
+    cantidad: number;
+}
 
 export interface PetEntry {
     id: string;
@@ -14,13 +22,13 @@ export interface PetEntry {
     edadMeses: string;
     horaEnvio: string;
     estadoMuestra: "Normal" | "Coagulada";
+    servicios: ServicioOrden[];
 }
 
 export interface PaymentRow {
     id: string;
     medio: string;
     valor: string;
-    mascotaId?: string;
 }
 
 export interface AuditEntry {
@@ -51,17 +59,17 @@ export interface Orden {
     domiciliario: string;
     horaLlamada: string;
     horaLlegada: string;
-    prioridad: "Normal" | "Prioritaria";
+    prioridad: "Normal" | "Prioritaria" | "Urgente";
     valorTotal: string;
     pagos: PaymentRow[];
-    estadoPago: "Pagado" | "Pendiente por pago";
+    estadoPago: "Pagado" | "Pago parcial" | "Pendiente por pago";
     movimiento: "Ingreso" | "Gasto";
     observaciones: string;
+    estadoOrden: "Pendiente de recepción" | "En proceso" | "Completada";
     auditoria: AuditEntry[];
 }
 
 export type FormOrden = Omit<Orden, "id" | "factura" | "auditoria">;
-
 
 export interface Cliente {
     id: string;
