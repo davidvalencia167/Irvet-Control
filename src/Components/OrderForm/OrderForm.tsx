@@ -3,7 +3,7 @@ import type { FormOrden, PaymentRow, PetEntry } from "../../types";
 import { AlertCircle, ChevronDown, ChevronUp, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { CLIENTES, DOMICILIARIOS, EMPTY_FORM, IC, MEDIOS_PAGO, newPet, RESPONSABLES } from "../../constants";
 import { BREEDS_BY_SPECIES, SPECIES } from "../../constants/breeds";
-import type { ServicioCatalogo } from "../../constants/services";
+import { calculatePetServicesTotal, type ServicioCatalogo } from "../../constants/services";
 
 function Label({ text, required }: { text: string; required?: boolean }) {
   return <label className="block text-[11px] font-bold text-[#6B7A99] mb-1.5 uppercase tracking-wider">{text}{required && <span className="text-rose-500 ml-0.5">*</span>}</label>;
@@ -26,7 +26,7 @@ function PetCard({ pet, index, catalogo, onChange, onRemove, canRemove }: {
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState("");
   const breeds = BREEDS_BY_SPECIES[pet.especie] ?? [];
-  const tipos = Object.keys(catalogo);
+  const tipos = Object.keys(catalogo).filter((type) => type !== "Paquete" && type !== "Paquetes");
   const [tipo, setTipo] = useState("");
   const available = useMemo(() => (tipo ? catalogo[tipo] ?? [] : []).filter(s => `${s.nombre} ${s.categoria}`.toLowerCase().includes(search.toLowerCase())), [catalogo, tipo, search]);
 
@@ -67,7 +67,7 @@ function PetCard({ pet, index, catalogo, onChange, onRemove, canRemove }: {
           <div className="col-span-2"><Label text="Buscar descripción"/><input value={search} onChange={e => setSearch(e.target.value)} disabled={!tipo} placeholder="Buscar examen..." className={`${IC} disabled:opacity-50`}/></div>
         </div>
         {tipo && <div className="max-h-36 overflow-y-auto space-y-2 rounded-xl bg-[#F8FAFC] p-3">{available.map(service => <label key={`${service.categoria}-${service.nombre}`} className="flex items-start gap-2 text-[12px] cursor-pointer"><input type="checkbox" checked={pet.servicios.some(s => s.descripcion === service.nombre)} onChange={() => toggleService(service)} className="mt-0.5 accent-[#2BB5C3]"/><span><span className="font-semibold">{service.nombre}</span> <span className="text-[#6B7A99]">({service.categoria}) · ${service.precio.toLocaleString("es-CO")}</span></span></label>)}</div>}
-        {pet.servicios.length > 0 && <div className="mt-3 space-y-1.5">{pet.servicios.map(s => <div key={s.id} className="flex items-center justify-between text-[11px] bg-white border border-[rgba(27,43,75,0.06)] rounded-lg px-3 py-2"><span><b>{s.tipo}</b> · {s.descripcion}</span><span className="font-bold">${s.precio.toLocaleString("es-CO")}</span></div>)}</div>}
+        {pet.servicios.length > 0 && <div className="mt-3 space-y-1.5">{pet.servicios.map(s => <div key={s.id} className="flex items-center justify-between text-[11px] bg-white border border-[rgba(27,43,75,0.06)] rounded-lg px-3 py-2"><span><b>{s.tipo}</b> · {s.descripcion}</span><span className="font-bold">${s.precio.toLocaleString("es-CO")}</span></div>)}<div className="flex items-center justify-between border-t border-[rgba(27,43,75,0.1)] pt-2 text-[12px] font-extrabold text-[#1B2B4B]"><span>Total de esta mascota</span><span>${calculatePetServicesTotal(pet.servicios).toLocaleString("es-CO")}</span></div></div>}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -98,7 +98,7 @@ export default function OrderForm({ factura, editingId, initialForm, errors, cat
   const upd = (k: keyof FormOrden, v: unknown) => setForm(f => ({...f,[k]:v}));
 
   useEffect(() => {
-    const total = form.mascotas.reduce((sum,p) => sum + p.servicios.reduce((s,x) => s + x.precio * x.cantidad, 0), 0);
+    const total = form.mascotas.reduce((sum,p) => sum + calculatePetServicesTotal(p.servicios), 0);
     const totalValue = total ? String(total) : "";
     const paid = form.pagos.reduce((sum,p) => sum + Number(p.valor || 0),0);
     const status: FormOrden["estadoPago"] = total > 0 && paid >= total ? "Pagado" : paid > 0 ? "Pago parcial" : "Pendiente por pago";

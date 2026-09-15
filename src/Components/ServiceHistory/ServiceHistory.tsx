@@ -74,7 +74,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                 </div>
 
                 <div className="flex items-center gap-3 flex-wrap">
-                    <div className="relative flex-1 min-w-[220px]">
+                    <div className="relative flex-1 min-w-55">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
                         <input value={search} onChange={(e) => {setSearch(e.target.value); setCurrentPage(1);}} placeholder="Buscar por orden, factura, cliente, servicio, fecha o responsable..." className="w-full pl-8 pr-4 py-2 text-[13px] bg-[#F4F7FA] border border-[rgba(27,43,75,0.08)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2BB5C3]/25 focus:border-[#2BB5C3] placeholder:text-gray-400 transition-colors" />
                     </div>

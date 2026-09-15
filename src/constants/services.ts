@@ -4,6 +4,8 @@ export interface ServicioCatalogo {
   precio: number;
 }
 
+import type { ServicioOrden } from "../types";
+
 const laboratorio = (categoria: string, nombre: string, precio: number): ServicioCatalogo => ({ categoria, nombre, precio });
 
 export const SERVICIOS_LABORATORIO: ServicioCatalogo[] = [
@@ -79,9 +81,34 @@ export const SERVICIOS_ECOGRAFIA: ServicioCatalogo[] = [
 
 export const SERVICIOS_POR_TIPO: Record<string, ServicioCatalogo[]> = {
   Laboratorio: SERVICIOS_LABORATORIO,
-  Paquete: SERVICIOS_PAQUETES,
   Radiología: SERVICIOS_RADIOLOGIA,
   Ecografía: SERVICIOS_ECOGRAFIA,
+};
+
+const PRECIOS_COMBO: Record<number, number> = {
+  3: 38000,
+  4: 42000,
+  5: 45000,
+  6: 48000,
+  7: 51000,
+  8: 54000,
+  9: 57000,
+};
+
+export const calculatePetServicesTotal = (services: ServicioOrden[]) => {
+  const laboratorio = services.filter((service) => service.tipo === "Laboratorio");
+  const individuales = services.filter((service) => service.tipo !== "Laboratorio");
+  const cantidadLaboratorio = laboratorio.length;
+
+  if (cantidadLaboratorio >= 13) {
+    return 110000 + laboratorio.slice(13).reduce((total, service) => total + service.precio * service.cantidad, 0) + individuales.reduce((total, service) => total + service.precio * service.cantidad, 0);
+  }
+
+  const cantidadCombo = Math.min(cantidadLaboratorio, 9);
+  const precioCombo = PRECIOS_COMBO[cantidadCombo] ?? 0;
+  const extras = laboratorio.slice(cantidadCombo).reduce((total, service) => total + service.precio * service.cantidad, 0);
+
+  return precioCombo + extras + individuales.reduce((total, service) => total + service.precio * service.cantidad, 0);
 };
 
 export const calculateServiceTotal = (
