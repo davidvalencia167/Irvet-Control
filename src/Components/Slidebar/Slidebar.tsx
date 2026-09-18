@@ -1,4 +1,4 @@
-import { ChevronDown, ClipboardList, ShieldUser, Stethoscope, Users } from "lucide-react";
+import { ChevronDown, CircleAlert, ClipboardList, ShieldUser, Stethoscope, Users } from "lucide-react";
 import { ImageWithFallback } from "../../app/components/ui/ImageWithFallback";
 import logoIrvet from "../../assets/logo_irvet.jpeg";
 
@@ -16,6 +16,7 @@ interface SidebarProps {
 
 const defaultItems: SidebarItem[] = [
   { key: "services", label: "Registro de Servicios" },
+  { key: "pending", label: "Pendientes" },
   { key: "clients", label: "Clientes" },
   { key: "veterinary", label: "Médicos Veterinarios" },
   { key: "manager", label: "Responsables" },
@@ -28,6 +29,7 @@ export default function Sidebar({
   onSelectModule,
 }: SidebarProps) {
   const getMenuIcon = (key: string) => {
+    if (key === "pending") return CircleAlert;
     if (key === "clients") return Users;
     if (key === "veterinary") return Stethoscope;
     if (key === "manager") return ShieldUser;
@@ -35,7 +37,7 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="w-[240px] shrink-0 flex flex-col h-full" style={{ background: "#1B2B4B" }}>
+    <aside className="w-60 shrink-0 flex flex-col h-full" style={{ background: "#1B2B4B" }}>
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl overflow-hidden bg-white flex items-center justify-center shrink-0 p-0.5">

@@ -7,8 +7,9 @@ import Services from "../Pages/Services/Services";
 import Veterinary from "../Pages/Veterinary/Veterinary";
 import type { Cliente, Medico, Responsable } from "../types";
 import { SERVICIOS_PAQUETES, SERVICIOS_POR_TIPO, type ServicioCatalogo } from "../constants/services";
+import Pendings from "../Pages/Pendings/Pendings";
 
-type ModuleKey = "services" | "clients" | "veterinary" | "manager" | "catalog";
+type ModuleKey = "services" | "pending" | "clients" | "veterinary" | "manager" | "catalog";
 
 function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
   const cleaned: Record<string, ServicioCatalogo[]> = {};
@@ -136,6 +137,7 @@ function App() {
   const sidebarItems = useMemo(
     () => [
       { key: "services", label: "Registro de Servicios" },
+      { key: "pending", label: "Pendientes" },
       { key: "clients", label: "Clientes" },
       { key: "veterinary", label: "Médicos Veterinarios" },
       { key: "manager", label: "Responsables" },
@@ -226,6 +228,21 @@ function App() {
       )
     );
   };
+
+    if (activeModule === "pending") {
+    return (
+      <MainLayout
+        ordenes={[]}
+        title="Pendientes"
+        showNewOrderButton={false}
+        activeModule={activeModule}
+        onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
+        sidebarItems={sidebarItems}
+      >
+        <Pendings ordenes={[]} />
+      </MainLayout>
+    );
+  }
 
   if (activeModule === "clients") {
     return (
