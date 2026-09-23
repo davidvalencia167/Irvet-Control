@@ -27,8 +27,11 @@ function Section({emoji, title, children}: {emoji: string; title: string; childr
 }
 
 export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => void}) {
-    const totalPagado = orden.pagos.reduce((a, p) => a + Number(p.valor || 0), 0);
-    const pendiente = Math.max(0, Number(orden.valorTotal || 0)-totalPagado);
+    const totalPagado = orden.pagos
+      .filter((p) => (p.tipo ?? "Pago") === "Pago")
+      .reduce((a, p) => a + Number(p.valor || 0), 0);
+    const totalCubierto = orden.pagos.reduce((a, p) => a + Number(p.valor || 0), 0);
+    const pendiente = Math.max(0, Number(orden.valorTotal || 0)-totalCubierto);
 
     return(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background: "rgba(27, 43, 75, 0.55)"}}>
@@ -117,7 +120,11 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                     <Section emoji="💳" title="Pagos">
                         {orden.pagos.filter((p) => p.medio || p.valor).map((p, i) => (
                           <div key={p.id} className="flex justify-between py-1.5 border-b border-[rgba(27,43,75,0.05)]">
-                            <span className="text-[11px] font-bold text-[#6B7A99]">{p.medio || `Pago ${i + 1}`}</span>
+                            <span className="text-[11px] font-bold text-[#6B7A99]">
+                              {p.tipo ?? "Pago"} · {p.medio || `Movimiento ${i + 1}`}
+                              {p.concepto ? ` · ${p.concepto}` : ""}
+                              {p.mascotaId ? ` · ${orden.mascotas.find((pet) => pet.id === p.mascotaId)?.nombre || "Mascota"}` : ""}
+                            </span>
                             <span className="text-[12px] font-semibold text-[#1B2B4B]">${Number(p.valor || 0).toLocaleString("es-CO")}</span>
                           </div>
                         ))}

@@ -15,6 +15,7 @@ interface SidebarProps {
 }
 
 const defaultItems: SidebarItem[] = [
+  { key: "dashboard", label: "Dashboard"},
   { key: "services", label: "Registro de Servicios" },
   { key: "pending", label: "Pendientes" },
   { key: "clients", label: "Clientes" },

@@ -5,7 +5,7 @@ import Manager from "../Pages/Manager/Manager";
 import ServiceCatalog from "../Pages/ServiceCatalog/ServiceCatalog";
 import Services from "../Pages/Services/Services";
 import Veterinary from "../Pages/Veterinary/Veterinary";
-import type { Cliente, Medico, Responsable } from "../types";
+import type { Cliente, Medico, Orden, Responsable } from "../types";
 import { SERVICIOS_PAQUETES, SERVICIOS_POR_TIPO, type ServicioCatalogo } from "../constants/services";
 import Pendings from "../Pages/Pendings/Pendings";
 
@@ -28,6 +28,38 @@ function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
   });
 
   return cleaned;
+}
+
+function loadOrdenes(): Orden[] {
+  const saved = localStorage.getItem("irvet_ordenes");
+  if (!saved) return [];
+
+  try {
+    const raw = JSON.parse(saved) as Partial<Orden>[];
+    return raw.map((orden) => ({
+      ...orden,
+      mascotas: (orden.mascotas ?? []).map((mascota) => ({
+        ...mascota,
+        servicios: mascota.servicios ?? [],
+      })),
+      pagos: (orden.pagos ?? []).map((pago) => ({
+        id: pago.id ?? crypto.randomUUID(),
+        tipo: pago.tipo ?? "Pago",
+        medio: pago.medio ?? "",
+        valor: pago.valor ?? "",
+        mascotaId: pago.mascotaId ?? "",
+        concepto: pago.concepto ?? "",
+      })),
+      cantidad: orden.cantidad ?? "0",
+      estadoPago: orden.estadoPago ?? "Pendiente por pago",
+      estadoOrden:
+        orden.estadoOrden ??
+        ((orden.mascotas ?? []).length ? "Completada" : "Pendiente de recepción"),
+      auditoria: orden.auditoria ?? [],
+    })) as Orden[];
+  } catch {
+    return [];
+  }
 }
 
 const initialClientes: Cliente[] = [
@@ -116,6 +148,7 @@ const initialResponsables: Responsable[] = [
 
 function App() {
   const [activeModule, setActiveModule] = useState<ModuleKey>("services");
+  const [ordenes, setOrdenes] = useState<Orden[]>(loadOrdenes);
   const [clientes, setClientes] = useState<Cliente[]>(initialClientes);
   const [medicos, setMedicos] = useState<Medico[]>(initialMedicos);
   const [responsables, setResponsables] = useState<Responsable[]>(initialResponsables);
@@ -133,6 +166,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem("irvet_catalogo_servicios", JSON.stringify(catalogo));
   }, [catalogo]);
+
+  useEffect(() => {
+    localStorage.setItem("irvet_ordenes", JSON.stringify(ordenes));
+  }, [ordenes]);
 
   const sidebarItems = useMemo(
     () => [
@@ -232,14 +269,14 @@ function App() {
     if (activeModule === "pending") {
     return (
       <MainLayout
-        ordenes={[]}
+        ordenes={ordenes}
         title="Pendientes"
         showNewOrderButton={false}
         activeModule={activeModule}
         onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
         sidebarItems={sidebarItems}
       >
-        <Pendings ordenes={[]} />
+        <Pendings ordenes={ordenes} />
       </MainLayout>
     );
   }
@@ -318,6 +355,8 @@ function App() {
       onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
       sidebarItems={sidebarItems}
       catalogo={catalogo}
+      ordenes={ordenes}
+      onOrdenesChange={setOrdenes}
     />
   );
 }

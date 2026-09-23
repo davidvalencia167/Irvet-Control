@@ -18,10 +18,10 @@ export const CLIENTES = [
   "Dr Juan Guillermo", "Eden Canino", "El Bufalo", "El Campi", "El Gato Pescador", "El Gurmet De Todas Las Mascotas", "El Mundo Según Los Gatos", "El Rancho", "Equinorte", "Farmanimal", "Flipo", "Gigi Spa", "Giuseppe", "Guapos Consultorio Veterinario", "Happy Pet", "Hermavet", "Hospital Veterinario San Rafel", "Hospital Veterinario",
   "Jardin De Las Mascotas", "La Belleza De Tus Mascotas", "La Casona", "La Tropa Gatuna", "M&M", "Mascoaventura", "Mascotas Club", "Mascotas Felices", "Mascotas Prinx", "Mascotas Wow", "Mascoticas Kukuta", "Mascotilandia", "Mascovet", "Medic Pet Shop", "Medical Care Vet", "Medical Pet", "Medvet", "Mi Gran Cachorro", "Mi Granja Veterinaria Bochalema",
   "Mi Mejor Amigo", "Mis Joyitas", "Mis Peluditos", "Mister Wamba", "Mundo Animal Vipet", "Mundo Canino", "Mundo De Mascota La Villa", "Mundo Pets C.V S.A.S", "Naladu", "Nutrimascotas", "Orange Clinica Veterinaria", "Park Animal Vet", "Patitas", "Patitas & Garritas Vet House", "Peluditos", "Perros Y Gatos", "Pet Chan", "Pet Corp", "Pet Doctor", "Pet Garden",
-  "Pet Guau", "Pet Home", "Pet Shop Animal Print", "Pet Shop Cafe La Estacion", "Pet Shop Feli-Can", "Pet Shop Horeb", "Pet Shop La Granja De Las Américas", "Pet Shop La Granja De Mi Mascota", "Pet Shop Shaira", "Pet Shop Thor", "Pet Shop Villa", "Pet You", "Pets Boutique", "Pets Friendly", "Pet's Shop Prinx", "Pilky", "Primavera", "Quinta Velez", "Ross Mascot", 
+  "Pet Guau", "Pet Home", "Pet Shop Animal Print", "Pet Shop Cafe La Estacion", "Pet Shop Feli-Can", "Pet Shop Horeb", "Pet Shop La Granja De Las Américas", "Pet Shop La Granja De Mi Mascota", "Pet Shop Shaira", "Pet Shop Thor", "Pet Shop Villa", "Pet You", "Pets Boutique", "Pets Friendly", "Pet's Shop Prinx", "Pilky", "Primavera", "Quinta Velez", "Ross Mascot",
   "Salud Animal", "Sanitos", "Scooby Doo", "Servicios Veterinarios Sander", "Servivet", "Spa Canino Arca De Noe", "Spa Canino Fiel Amigo", "Spa De Mascotas", "Super Mascotas", "Tienda De Mascotas Millán Dog", "Tienda De Mascotas Mr. Dog", "Tienda De Mascotas Tony", "Tienda De Mascotas Y Spa Bluey", "Tienda Mascotas Can House",
   "Tienda Mascotas Doggy Love", "Tienda Para Mascotas Firulais", "Tienda Para Tu Mascota", "Tu Mascoticas.Com", "Unidad Movil Bochalema", "Urgency Pets", "Vet In House", "Vet Souls", "Vet Zen", "Vet plus", "Veterinaria & Petshop Familyvet", "Veterinaria Agrocampo", "Veterinaria Agro-Patios", "Veterinaria Agrovilla Del Rosario", "Veterinaria Animal Medical", "Veterinaria Animalandia 24/7",
-  "Veterinaria Caobos", "Veterinaria Dog Charles", "Veterinaria El Campo", "Veterinaria El Trigal", "Veterinaria Faun Vet", "Veterinaria Felix", "Veterinaria Fenix", "Veterinaria Health", "Veterinaria Medical Planet", "Veterinaria Oddy", "Veterinaria Osvaldo", "Veterinaria San Eduardo", "Veterinaria Su Campeon", "Veterinaria Vida De Perros", "Veterinaria Y Peluquería Canina Mundo Wau Guau", 
+  "Veterinaria Caobos", "Veterinaria Dog Charles", "Veterinaria El Campo", "Veterinaria El Trigal", "Veterinaria Faun Vet", "Veterinaria Felix", "Veterinaria Fenix", "Veterinaria Health", "Veterinaria Medical Planet", "Veterinaria Oddy", "Veterinaria Osvaldo", "Veterinaria San Eduardo", "Veterinaria Su Campeon", "Veterinaria Vida De Perros", "Veterinaria Y Peluquería Canina Mundo Wau Guau",
   "Veterinaria Zona Animal", "VetJuli", "Vetopia", "Vida Animal", "Vida De Mascotas", "Vida Mascotas", "Vida Pets Clínica Veterinaria", "Villa Nueva", "Vital Vet", "Yefran Mascotas", "Yoel Vet", "Zoolomascotas", "Zoolomascotas C&M"
 ];
 
@@ -54,7 +54,11 @@ export const newPet = (): PetEntry => ({
 
 export const newPaymentRow = (): PaymentRow => ({
   id: crypto.randomUUID(),
-  medio: "", valor: "",
+  tipo: "Pago",
+  medio: "",
+  valor: "",
+  mascotaId: "",
+  concepto: "",
 });
 
 export const EMPTY_FORM = () => ({

@@ -25,10 +25,15 @@ export interface PetEntry {
     servicios: ServicioOrden[];
 }
 
+export type PaymentType = "Pago" | "Promoción" | "Obsequio";
+
 export interface PaymentRow {
     id: string;
+    tipo: PaymentType;
     medio: string;
     valor: string;
+    mascotaId: string;
+    concepto: string;
 }
 
 export interface AuditEntry {

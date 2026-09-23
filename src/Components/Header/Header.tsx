@@ -16,7 +16,7 @@ export default function Header({
   const heading = title ?? (editingId ? "✏️ Editando Orden" : "Registro de Servicios");
 
   return (
-    <header className="h-[60px] bg-white border-b border-[rgba(27,43,75,0.08)] flex items-center px-6 gap-4 shrink-0">
+    <header className="h-15 bg-white border-b border-[rgba(27,43,75,0.08)] flex items-center px-6 gap-4 shrink-0">
       <div className="flex-1">
         <h1 className="text-base font-extrabold text-[#1B2B4B] tracking-tight">
           {heading}

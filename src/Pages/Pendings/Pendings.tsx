@@ -4,7 +4,7 @@ import { AlertTriangle, Filter, Search } from "lucide-react";
 
 type FiltroEstado = "todos" | "pendiente" | "parcial" | "vencido";
 
-const formatMoney = (value: number) => 
+const formatMoney = (value: number) =>
     new Intl.NumberFormat("es-CO", {
         style: "currency",
         currency: "COP",
@@ -31,13 +31,17 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
     const pendientes = useMemo(() => {
         return ordenes
         .map((orden) => {
-            const totalPagado = (orden.pagos ?? []).reduce(
+            const totalPagado = (orden.pagos ?? [])
+            .filter((pago) => (pago.tipo ?? "Pago") === "Pago")
+            .reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
+
+            const totalCubierto = (orden.pagos ?? []).reduce(
             (sum, pago) => sum + Number(pago.valor || 0),
             0
             );
 
             const totalOrden = Number(orden.valorTotal || 0);
-            const saldoPendiente = Math.max(0, totalOrden - totalPagado);
+            const saldoPendiente = Math.max(0, totalOrden - totalCubierto);
 
             const mascotaNombre = (orden.mascotas ?? [])
             .map((m) => m.nombre || "Sin nombre")
@@ -48,12 +52,34 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
             .map((s) => s.descripcion)
             .join(", ");
 
+            const detallePagos = (orden.pagos ?? [])
+            .filter((pago) => pago.medio || pago.valor || pago.concepto)
+            .map((pago) => {
+                const mascota = (orden.mascotas ?? []).find(
+                    (pet) => pet.id === pago.mascotaId,
+                );
+                const tipo = pago.tipo ?? "Pago";
+                const descripcion = tipo === "Pago"
+                    ? `${pago.medio || "Método sin definir"}: $${Number(pago.valor || 0).toLocaleString("es-CO")}`
+                    : `${tipo}: $${Number(pago.valor || 0).toLocaleString("es-CO")}`;
+                return `${mascota?.nombre || "Orden"} - ${descripcion}${pago.concepto ? ` (${pago.concepto})` : ""}`;
+            })
+            .join(" | ");
+
+            const numeroOrden = orden.numeroOrden || (orden.mascotas ?? [])
+                .map((mascota) => mascota.numeroOrden.trim())
+                .filter(Boolean)
+                .join(", ");
+
             return {
             ...orden,
+            numeroOrden,
             totalPagado,
+            totalCubierto,
             saldoPendiente,
             mascotaNombre,
             exámenes: exámenes || "Sin exámenes",
+            detallePagos: detallePagos || "Sin pagos registrados",
             };
         })
         .filter((orden) => {
@@ -70,6 +96,7 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
                 orden.descripcionServicio,
                 orden.mascotaNombre,
                 orden.exámenes,
+                orden.detallePagos,
             ]
                 .join(" ")
                 .toLowerCase()
@@ -184,6 +211,7 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
                                     "Fecha",
                                     "Mascota",
                                     "Exámenes",
+                                    "Detalle del pago",
                                     "Abono",
                                     "Valor total",
                                     "Saldo pendiente",
@@ -198,7 +226,7 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
                             {
                             pendientes.length === 0 && (
                                 <tr>
-                                    <td colSpan={9} className="text-center py-12 text-[#6B7A99] text-[13px]">
+                                    <td colSpan={10} className="text-center py-12 text-[#6B7A99] text-[13px]">
                                         No hay registros pendientes con esos filtros
                                     </td>
                                 </tr>
@@ -238,6 +266,12 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
                                         <td className="px-4 py-3 text-[12px] text-[#6B7A99] max-w-70">
                                             <div className="line-clamp-3">
                                                 {orden.exámenes || "Sin exámenes"}
+                                            </div>
+                                        </td>
+
+                                        <td className="px-4 py-3 text-[11px] text-[#1B2B4B] max-w-80">
+                                            <div className="line-clamp-3">
+                                                {orden.detallePagos}
                                             </div>
                                         </td>
 
