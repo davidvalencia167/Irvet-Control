@@ -6,7 +6,12 @@ import ServiceCatalog from "../Pages/ServiceCatalog/ServiceCatalog";
 import Services from "../Pages/Services/Services";
 import Veterinary from "../Pages/Veterinary/Veterinary";
 import type { Cliente, Medico, Orden, Responsable } from "../types";
-import { SERVICIOS_PAQUETES, SERVICIOS_POR_TIPO, type ServicioCatalogo } from "../constants/services";
+import {
+  SERVICIOS_LABORATORIO,
+  SERVICIOS_PAQUETES,
+  SERVICIOS_POR_TIPO,
+  type ServicioCatalogo,
+} from "../constants/services";
 import Pendings from "../Pages/Pendings/Pendings";
 
 type ModuleKey = "services" | "pending" | "clients" | "veterinary" | "manager" | "catalog";
@@ -22,8 +27,18 @@ function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
 
       const normalizedCategory = category === "Radiografía" ? "Radiología" : category;
       const nextCategory = normalizedCategory === "Combos" ? "Paquetes" : normalizedCategory;
+      const catalogService =
+        nextCategory === "Laboratorio"
+          ? SERVICIOS_LABORATORIO.find((item) => item.nombre === service.nombre)
+          : undefined;
 
-      cleaned[nextCategory] = [...(cleaned[nextCategory] ?? []), { ...service, categoria: nextCategory }];
+      cleaned[nextCategory] = [
+        ...(cleaned[nextCategory] ?? []),
+        {
+          ...service,
+          categoria: catalogService?.categoria ?? service.categoria,
+        },
+      ];
     });
   });
 

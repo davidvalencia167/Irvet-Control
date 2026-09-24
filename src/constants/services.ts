@@ -98,17 +98,62 @@ const PRECIOS_COMBO: Record<number, number> = {
 export const calculatePetServicesTotal = (services: ServicioOrden[]) => {
   const laboratorio = services.filter((service) => service.tipo === "Laboratorio");
   const individuales = services.filter((service) => service.tipo !== "Laboratorio");
-  const cantidadLaboratorio = laboratorio.length;
+  const elegiblesParaCombo = laboratorio.filter(
+    (service) =>
+      service.categoria === "Hematología" || service.precio === 14000,
+  );
+  const adicionales = laboratorio.filter(
+    (service) =>
+      service.categoria !== "Hematología" && service.precio !== 14000,
+  );
+  const totalIndividual = services.reduce(
+    (total, service) => total + service.precio * service.cantidad,
+    0,
+  );
+
+  if (elegiblesParaCombo.length < 3) {
+    return totalIndividual;
+  }
+
+  const cantidadLaboratorio = elegiblesParaCombo.length;
 
   if (cantidadLaboratorio >= 13) {
-    return 110000 + laboratorio.slice(13).reduce((total, service) => total + service.precio * service.cantidad, 0) + individuales.reduce((total, service) => total + service.precio * service.cantidad, 0);
+    return (
+      110000 +
+      elegiblesParaCombo.slice(13).reduce(
+        (total, service) => total + service.precio * service.cantidad,
+        0,
+      ) +
+      adicionales.reduce(
+        (total, service) => total + service.precio * service.cantidad,
+        0,
+      ) +
+      individuales.reduce(
+        (total, service) => total + service.precio * service.cantidad,
+        0,
+      )
+    );
   }
 
   const cantidadCombo = Math.min(cantidadLaboratorio, 9);
   const precioCombo = PRECIOS_COMBO[cantidadCombo] ?? 0;
-  const extras = laboratorio.slice(cantidadCombo).reduce((total, service) => total + service.precio * service.cantidad, 0);
+  const extras = elegiblesParaCombo.slice(cantidadCombo).reduce(
+    (total, service) => total + service.precio * service.cantidad,
+    0,
+  );
 
-  return precioCombo + extras + individuales.reduce((total, service) => total + service.precio * service.cantidad, 0);
+  return (
+    precioCombo +
+    extras +
+    adicionales.reduce(
+      (total, service) => total + service.precio * service.cantidad,
+      0,
+    ) +
+    individuales.reduce(
+      (total, service) => total + service.precio * service.cantidad,
+      0,
+    )
+  );
 };
 
 export const calculateServiceTotal = (
