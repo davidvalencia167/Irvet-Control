@@ -32,6 +32,7 @@ export interface PaymentRow {
     tipo: PaymentType;
     medio: string;
     valor: string;
+    fecha: string;
     mascotaId: string;
     concepto: string;
 }

@@ -4,6 +4,7 @@ import Clients from "../Pages/Clients/Clients";
 import Manager from "../Pages/Manager/Manager";
 import ServiceCatalog from "../Pages/ServiceCatalog/ServiceCatalog";
 import Services from "../Pages/Services/Services";
+import DashboardAdmin from "../Pages/Dashboard/Dashboard";
 import Veterinary from "../Pages/Veterinary/Veterinary";
 import type { Cliente, Medico, Orden, Responsable } from "../types";
 import {
@@ -12,9 +13,13 @@ import {
   SERVICIOS_POR_TIPO,
   type ServicioCatalogo,
 } from "../constants/services";
-import Pendings from "../Pages/Pendings/Pendings";
+import { currentDate } from "../constants";
 
-type ModuleKey = "services" | "pending" | "clients" | "veterinary" | "manager" | "catalog";
+import type { ComboCatalogo } from "../constants/services";
+import Pendings from "../Pages/Pendings/Pendings";
+import Combos from "../Pages/Combo/Combos";
+
+type ModuleKey = "dashboard" | "services" | "pending" | "clients" | "veterinary" | "manager" | "catalog" | "combos";
 
 function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
   const cleaned: Record<string, ServicioCatalogo[]> = {};
@@ -62,6 +67,7 @@ function loadOrdenes(): Orden[] {
         tipo: pago.tipo ?? "Pago",
         medio: pago.medio ?? "",
         valor: pago.valor ?? "",
+        fecha: pago.fecha ?? orden.fecha ?? currentDate(),
         mascotaId: pago.mascotaId ?? "",
         concepto: pago.concepto ?? "",
       })),
@@ -178,6 +184,18 @@ function App() {
     }
   });
 
+  const [combos, setCombos] = useState<ComboCatalogo[]>(() => {
+      const saved = localStorage.getItem("irvet_combos");
+
+      if(!saved) return[];
+
+      try {
+        return JSON.parse(saved) as ComboCatalogo[];
+      } catch {
+          return[];
+      }
+  });
+
   useEffect(() => {
     localStorage.setItem("irvet_catalogo_servicios", JSON.stringify(catalogo));
   }, [catalogo]);
@@ -186,10 +204,24 @@ function App() {
     localStorage.setItem("irvet_ordenes", JSON.stringify(ordenes));
   }, [ordenes]);
 
+  useEffect(() => {
+    localStorage.setItem("irvet_combos", JSON.stringify(combos));
+  }, [combos]);
+
+  const handleAddCombo = (combo: ComboCatalogo) => {
+    setCombos((current) => [combo, ...current]);
+  };
+
+  const handleDeleteCombo = (id: string) => {
+  setCombos((current) => current.filter((combo) => combo.id !== id));
+};
+
   const sidebarItems = useMemo(
     () => [
+      { key: "dashboard", label: "Dashboard" },
       { key: "services", label: "Registro de Servicios" },
       { key: "pending", label: "Pendientes" },
+      { key: "combos", label: "Combos"},
       { key: "clients", label: "Clientes" },
       { key: "veterinary", label: "Médicos Veterinarios" },
       { key: "manager", label: "Responsables" },
@@ -281,7 +313,29 @@ function App() {
     );
   };
 
-    if (activeModule === "pending") {
+  if (activeModule === "dashboard") {
+    return (
+      <MainLayout
+        ordenes={ordenes}
+        title="Dashboard"
+        showNewOrderButton={false}
+        activeModule={activeModule}
+        onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
+        sidebarItems={sidebarItems}
+      >
+        <DashboardAdmin
+          ordenes={ordenes}
+          clientes={clientes}
+          medicos={medicos}
+          responsables={responsables}
+          catalogo={catalogo}
+          combos={combos}
+        />
+      </MainLayout>
+    );
+  }
+
+  if (activeModule === "pending") {
     return (
       <MainLayout
         ordenes={ordenes}
@@ -291,9 +345,29 @@ function App() {
         onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
         sidebarItems={sidebarItems}
       >
-        <Pendings ordenes={ordenes} />
+        <Pendings ordenes={ordenes} onOrdenesChange={setOrdenes} />
       </MainLayout>
     );
+  }
+
+  if (activeModule === "combos") {
+      return(
+        <MainLayout
+          ordenes={ordenes}
+          title="Combos"
+          showNewOrderButton={false}
+          activeModule={activeModule}
+          onSelectModule={(modulekey) => setActiveModule(modulekey as ModuleKey)}
+          sidebarItems={sidebarItems}
+          >
+            <Combos
+                combos={combos}
+                catalogo={catalogo}
+                onAdd={handleAddCombo}
+                onDelete={handleDeleteCombo}
+            />
+          </MainLayout>
+      );
   }
 
   if (activeModule === "clients") {

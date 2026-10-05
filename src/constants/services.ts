@@ -1,7 +1,14 @@
 export interface ServicioCatalogo {
-  categoria: string;
-  nombre: string;
-  precio: number;
+    categoria: string;
+    nombre: string;
+    precio: number;
+}
+
+export interface ComboCatalogo {
+    id: string;
+    nombre: string;
+    servicios: ServicioCatalogo[];
+    precio: number;
 }
 
 import type { ServicioOrden } from "../types";

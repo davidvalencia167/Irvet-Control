@@ -57,6 +57,7 @@ export const newPaymentRow = (): PaymentRow => ({
   tipo: "Pago",
   medio: "",
   valor: "",
+  fecha: currentDate(),
   mascotaId: "",
   concepto: "",
 });

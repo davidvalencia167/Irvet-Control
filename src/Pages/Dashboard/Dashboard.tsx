@@ -1,5 +1,5 @@
 import { Activity, AlertTriangle, ArrowRight, BarChart3, ClipboardList, FolderKanban, ShieldUser, Stethoscope, Users, Wallet } from "lucide-react";
-import type { ServicioCatalogo } from "../../constants/services";
+import type { ComboCatalogo, ServicioCatalogo } from "../../constants/services";
 import type { Cliente, Medico, Orden, Responsable } from "../../types";
 
 
@@ -9,6 +9,7 @@ interface DashboardAdminProps {
     medicos: Medico[];
     responsables: Responsable[];
     catalogo: Record<string, ServicioCatalogo[]>;
+    combos: ComboCatalogo[];
 }
 
 const formatMoney = (value: number) =>
@@ -18,7 +19,7 @@ const formatMoney = (value: number) =>
         maximumFractionDigits: 0,
     }).format(value);
 
-export default function DashboardAdmin({ordenes, clientes, medicos, responsables, catalogo}: DashboardAdminProps) {
+export default function DashboardAdmin({ordenes, clientes, medicos, responsables, catalogo, combos}: DashboardAdminProps) {
     const totalCatalogServicios = Object.values(catalogo).reduce(
         (sum, items) => sum + items.length,
         0
@@ -34,12 +35,14 @@ export default function DashboardAdmin({ordenes, clientes, medicos, responsables
     const ordenesPendientes = ordenes.filter((o) => o.estadoOrden === "Pendiente de recepción").length;
 
     const totalIngresos = ordenes.reduce((sum, orden) => {
-        const pagos = (orden.pagos ?? []).reduce((acc, pago) => acc + Number(pago.valor || 0), 0);
+        const pagos = (orden.pagos ?? [])
+            .filter((pago) => (pago.tipo ?? "Pago") === "Pago")
+            .reduce((acc, pago) => acc + Number(pago.valor || 0), 0);
         return sum + pagos;
     }, 0);
 
     const totalDeuda = ordenes.reduce((sum, orden) => {
-        const totalPagado = (orden.pagos ?? []).reduce((acc, pago) => acc + Number(pago.valor ||0), 0);
+        const totalPagado = (orden.pagos ?? []).reduce((acc, pago) => acc + Number(pago.valor || 0), 0);
         const total = Number(orden.valorTotal  || 0);
         return sum + Math.max(0, total - totalPagado);
     }, 0);
@@ -62,6 +65,7 @@ export default function DashboardAdmin({ordenes, clientes, medicos, responsables
         { label: "Médicos", total: medicos.length, active: totalMedicosActivos, icon: Stethoscope, color: "bg-[#EEF2FF] text-[#5865F2]"},
         { label: "Responsables", total: responsables.length, active: totalResponsablesActivos, icon: ShieldUser, color: "bg-[#ECFDF5] text-[#10B981]"},
         { label: "Catálogo", total: totalCatalogServicios, active: totalCatalogServicios, icon: ClipboardList, color: "bg-[#FFF7ED] text-[#F59E0B]"},
+        { label: "Combos", total: combos.length, active: combos.length, icon: BarChart3, color: "bg-[#F5F3FF] text-[#7C3AED]"},
     ];
 
     return(

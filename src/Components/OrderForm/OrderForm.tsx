@@ -146,7 +146,7 @@ function PaymentBlock({
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-[#F8FAFC] rounded-xl p-3">
           <p className="text-[10px] font-bold text-[#6B7A99] uppercase">
-            Valor total
+            Valor de servicios
           </p>
           <p className="text-[18px] font-extrabold text-[#1B2B4B]">
             ${total.toLocaleString("es-CO")}
@@ -155,7 +155,7 @@ function PaymentBlock({
 
         <div className="bg-[#F8FAFC] rounded-xl p-3">
           <p className="text-[10px] font-bold text-[#6B7A99] uppercase">
-            Dinero recibido
+            Total pagado
           </p>
           <p className="text-[18px] font-extrabold text-emerald-600">
             ${totalPagado.toLocaleString("es-CO")}
@@ -213,8 +213,33 @@ function PaymentBlock({
             );
 
             const examenes =
-              mascota?.servicios.map((service) => service.descripcion).join(", ") ||
-              "Sin exámenes";
+              mascota?.servicios
+                .map(
+                  (service) =>
+                    `${service.descripcion} ($${service.precio.toLocaleString("es-CO")})`
+                )
+                .join(", ") || "Sin exámenes";
+            const valorServiciosMascota = mascota
+              ? calculatePetServicesTotal(mascota.servicios)
+              : 0;
+            const pagadoMascota = mascota
+              ? pagos
+                  .filter(
+                    (payment) =>
+                      payment.mascotaId === mascota.id &&
+                      (payment.tipo ?? "Pago") === "Pago"
+                  )
+                  .reduce((sum, payment) => sum + Number(payment.valor || 0), 0)
+              : 0;
+            const cubiertoMascota = mascota
+              ? pagos
+                  .filter((payment) => payment.mascotaId === mascota.id)
+                  .reduce((sum, payment) => sum + Number(payment.valor || 0), 0)
+              : 0;
+            const saldoMascota = Math.max(
+              0,
+              valorServiciosMascota - cubiertoMascota
+            );
 
             const tipo = row.tipo ?? "Pago";
 
@@ -257,16 +282,21 @@ function PaymentBlock({
                     </select>
                   )}
 
-                  <input
-                    type="number"
-                    min="0"
-                    value={row.valor}
-                    onChange={(e) =>
-                      onUpdateRow(row.id, "valor", e.target.value)
-                    }
-                    placeholder="$0"
-                    className={`${IC} w-full! h-10`}
-                  />
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#6B7A99] mb-1 uppercase">
+                      Valor pagado
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.valor}
+                      onChange={(e) =>
+                        onUpdateRow(row.id, "valor", e.target.value)
+                      }
+                      placeholder="$0"
+                      className={`${IC} w-full! h-10`}
+                    />
+                  </div>
 
                   <button
                     type="button"
@@ -309,11 +339,29 @@ function PaymentBlock({
                 </div>
 
                 {mascota && (
-                  <p className="text-[11px] text-[#6B7A99]">
+                  <div className="rounded-lg bg-[#F8FAFC] px-3 py-2 text-[11px] text-[#6B7A99] space-y-1">
                     <strong>{mascota.nombre}</strong> · Orden{" "}
                     {mascota.numeroOrden || "Sin número"} · Exámenes:{" "}
                     {examenes}
-                  </p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 font-semibold">
+                      <span>
+                        Valor de servicios: ${valorServiciosMascota.toLocaleString("es-CO")}
+                      </span>
+                      <span className="text-emerald-700">
+                        Dinero pagado: ${pagadoMascota.toLocaleString("es-CO")}
+                      </span>
+                      {cubiertoMascota > pagadoMascota && (
+                        <span className="text-blue-700">
+                          Cubierto con promoción: $
+                          {(cubiertoMascota - pagadoMascota).toLocaleString("es-CO")}
+                        </span>
+                      )}
+                      <span className={saldoMascota > 0 ? "text-amber-700" : "text-emerald-700"}>
+                        {saldoMascota > 0 ? "Saldo pendiente" : "Saldo cubierto"}: $
+                        {saldoMascota.toLocaleString("es-CO")}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             );

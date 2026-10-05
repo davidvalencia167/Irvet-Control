@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
-import type { Orden } from "../../types";
-import { AlertTriangle, Filter, Search } from "lucide-react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import type { Orden, PaymentRow } from "../../types";
+import { AlertTriangle, CalendarDays, Check, Filter, Plus, Search, X } from "lucide-react";
+import { currentDate, IC, MEDIOS_PAGO } from "../../constants";
+import { calculatePetServicesTotal } from "../../constants/services";
 
 type FiltroEstado = "todos" | "pendiente" | "parcial" | "vencido";
 
@@ -11,10 +13,28 @@ const formatMoney = (value: number) =>
         maximumFractionDigits: 0,
     }).format(value);
 
-export default function Pendings({ordenes}:{ordenes: Orden[]}) {
+type PetPending = {
+    id: string;
+    nombre: string;
+    numeroOrden: string;
+    examenes: string;
+    valor: number;
+    pagado: number;
+    cubierto: number;
+    saldo: number;
+    pagos: PaymentRow[];
+};
+
+export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; onOrdenesChange: Dispatch<SetStateAction<Orden[]>>}) {
     const [search, setSearch] = useState("");
     const [veterinaria, setVeterinaria] = useState("Todas");
     const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstado>("todos");
+    const [paymentOrder, setPaymentOrder] = useState<Orden | null>(null);
+    const [paymentPetId, setPaymentPetId] = useState("");
+    const [paymentAmount, setPaymentAmount] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("");
+    const [paymentDate, setPaymentDate] = useState(currentDate());
+    const [paymentConcept, setPaymentConcept] = useState("");
 
     const veterinarias = useMemo(
         () => Array.from(
@@ -62,7 +82,7 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
                 const descripcion = tipo === "Pago"
                     ? `${pago.medio || "Método sin definir"}: $${Number(pago.valor || 0).toLocaleString("es-CO")}`
                     : `${tipo}: $${Number(pago.valor || 0).toLocaleString("es-CO")}`;
-                return `${mascota?.nombre || "Orden"} - ${descripcion}${pago.concepto ? ` (${pago.concepto})` : ""}`;
+                return `${mascota?.nombre || "Orden"} - ${descripcion}${pago.fecha ? ` · ${pago.fecha}` : ""}${pago.concepto ? ` (${pago.concepto})` : ""}`;
             })
             .join(" | ");
 
@@ -70,6 +90,26 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
                 .map((mascota) => mascota.numeroOrden.trim())
                 .filter(Boolean)
                 .join(", ");
+
+            const mascotasDetalle: PetPending[] = (orden.mascotas ?? []).map((mascota) => {
+                const pagos = (orden.pagos ?? []).filter((pago) => pago.mascotaId === mascota.id);
+                const valor = calculatePetServicesTotal(mascota.servicios ?? []);
+                const pagado = pagos
+                    .filter((pago) => (pago.tipo ?? "Pago") === "Pago")
+                    .reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
+                const cubierto = pagos.reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
+                return {
+                    id: mascota.id,
+                    nombre: mascota.nombre || "Sin nombre",
+                    numeroOrden: mascota.numeroOrden || numeroOrden || "Sin número",
+                    examenes: mascota.servicios?.map((servicio) => servicio.descripcion).join(", ") || "Sin exámenes",
+                    valor,
+                    pagado,
+                    cubierto,
+                    saldo: Math.max(0, valor - cubierto),
+                    pagos,
+                };
+            });
 
             return {
             ...orden,
@@ -80,6 +120,7 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
             mascotaNombre,
             exámenes: exámenes || "Sin exámenes",
             detallePagos: detallePagos || "Sin pagos registrados",
+            mascotasDetalle,
             };
         })
         .filter((orden) => {
@@ -117,6 +158,44 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
     }, [ordenes, search, veterinaria, estadoFiltro]);
 
     const totalPendienteGeneral = pendientes.reduce((sum, orden) => sum + orden.saldoPendiente, 0);
+    const openPayment = (orden: Orden, petId = "") => {
+        const pet = orden.mascotas.find((item) => item.id === petId) ?? orden.mascotas[0];
+        const petPayments = pet ? orden.pagos.filter((pago) => pago.mascotaId === pet.id) : [];
+        const value = pet
+            ? Math.max(0, calculatePetServicesTotal(pet.servicios) - petPayments.reduce((sum, pago) => sum + Number(pago.valor || 0), 0))
+            : Math.max(0, Number(orden.valorTotal || 0) - orden.pagos.reduce((sum, pago) => sum + Number(pago.valor || 0), 0));
+        setPaymentOrder(orden);
+        setPaymentPetId(pet?.id ?? "");
+        setPaymentAmount(String(value));
+        setPaymentMethod("");
+        setPaymentDate(currentDate());
+        setPaymentConcept("");
+    };
+    const closePayment = () => setPaymentOrder(null);
+    const savePayment = () => {
+        if (!paymentOrder || !paymentAmount || Number(paymentAmount) <= 0 || !paymentMethod || !paymentDate) return;
+        const payment: PaymentRow = {
+            id: crypto.randomUUID(),
+            tipo: "Pago",
+            medio: paymentMethod,
+            valor: paymentAmount,
+            fecha: paymentDate,
+            mascotaId: paymentPetId,
+            concepto: paymentConcept,
+        };
+        onOrdenesChange((current) => current.map((orden) => {
+            if (orden.id !== paymentOrder.id) return orden;
+            const pagos = [...(orden.pagos ?? []), payment];
+            const total = Number(orden.valorTotal || 0);
+            const cubierto = pagos.reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
+            return {
+                ...orden,
+                pagos,
+                estadoPago: total > 0 && cubierto >= total ? "Pagado" : cubierto > 0 ? "Pago parcial" : "Pendiente por pago",
+            };
+        }));
+        closePayment();
+    };
 
     return(
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
@@ -210,12 +289,12 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
                                     "N° Orden",
                                     "Fecha",
                                     "Mascota",
-                                    "Exámenes",
-                                    "Detalle del pago",
-                                    "Abono",
+                                    "Servicios y valor",
+                                    "Pagado",
                                     "Valor total",
                                     "Saldo pendiente",
-                                    "Estado"
+                                    "Estado",
+                                    "Acción"
                                 ].map((header) => (
                                     <th key={header} className="text-left px-4 py-3 text-[10px] font-bold text-[#6B7A99] uppercase tracking-wider whitespace-nowrap">{header}</th>
                                 ))}
@@ -233,71 +312,123 @@ export default function Pendings({ordenes}:{ordenes: Orden[]}) {
                             )}
 
                             {
-                                pendientes.map((orden) => (
-                                    <tr key={orden.id} className="border-b border-[rgba(27,43,75,0.04)] hover:bg-[#F8FAFC] transition-colors">
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-xl bg-[#EAF9FB] flex items-center justify-center text-[#2BB5C3]">
-                                                    <AlertTriangle size={14}/>
-                                                </div>
-                                                <div>
-                                                    <p className="text-[13px] font-semibold text-[#1B2B4B]">
-                                                        {orden.cliente || "Sin veterinaria"}
-                                                    </p>
-                                                    <p className="text-[10px] text-[#6B7A99]">
-                                                        {orden.tipoServicio || "Sin tipo"}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </td>
+                                pendientes.flatMap((orden) => {
+                                    const pets = orden.mascotasDetalle.length > 0
+                                        ? orden.mascotasDetalle
+                                        : [{
+                                        id: `${orden.id}-sin-mascota`,
+                                        nombre: "Sin mascota",
+                                        numeroOrden: orden.numeroOrden || "—",
+                                        examenes: orden.exámenes,
+                                        valor: Number(orden.valorTotal || 0),
+                                        pagado: orden.totalPagado,
+                                        cubierto: orden.totalCubierto,
+                                        saldo: orden.saldoPendiente,
+                                        pagos: orden.pagos,
+                                        }];
 
-                                        <td className="px-4 py-3 text-[12px] font-bold text-[#1B2B4B]">
-                                            {orden.numeroOrden || "—"}
-                                        </td>
+                                    return pets.map((pet, petIndex) => (
+                                        <tr key={`${orden.id}-${pet.id}`} className="border-b border-[rgba(27,43,75,0.04)] hover:bg-[#F8FAFC] transition-colors">
+                                        {petIndex === 0 && (
+                                            <>
+                                                <td rowSpan={pets.length} className="px-4 py-3 align-top">
+                                                    <div className="flex items-start gap-2">
+                                                        <div className="w-8 h-8 rounded-xl bg-[#EAF9FB] flex items-center justify-center text-[#2BB5C3] shrink-0">
+                                                            <AlertTriangle size={14}/>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[13px] font-semibold text-[#1B2B4B]">{orden.cliente || "Sin veterinaria"}</p>
+                                                            <p className="text-[10px] text-[#6B7A99]">{orden.tipoServicio || "Sin tipo"}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td rowSpan={pets.length} className="px-4 py-3 align-top text-[12px] font-bold text-[#1B2B4B]">
+                                                    {orden.numeroOrden || pets.map((item) => item.numeroOrden).join(", ") || "—"}
+                                                </td>
+                                                <td rowSpan={pets.length} className="px-4 py-3 align-top text-[12px] text-[#6B7A99] whitespace-nowrap">
+                                                    {orden.fecha || "—"}
+                                                </td>
+                                            </>
+                                        )}
 
-                                        <td className="px-4 py-3 text-[12px] text-[#6B7A99] whitespace-nowrap">
-                                            {orden.fecha || "—"}
+                                        <td className="px-4 py-3 align-top text-[12px] text-[#1B2B4B]">
+                                            <p className="font-extrabold">{pet.nombre}</p>
+                                            <p className="text-[10px] text-[#6B7A99]">Orden {pet.numeroOrden}</p>
                                         </td>
-
-                                        <td className="px-4 py-3 text-[12px] text-[#1B2B4B]">
-                                            {orden.mascotaNombre || "—"}
+                                        <td className="px-4 py-3 align-top text-[11px] text-[#1B2B4B] min-w-55">
+                                            <p>{pet.examenes}</p>
+                                            <p className="font-bold text-[#1B2B4B] mt-1">Valor: {formatMoney(pet.valor)}</p>
                                         </td>
-
-                                        <td className="px-4 py-3 text-[12px] text-[#6B7A99] max-w-70">
-                                            <div className="line-clamp-3">
-                                                {orden.exámenes || "Sin exámenes"}
-                                            </div>
+                                        <td className="px-4 py-3 align-top text-[12px] font-semibold text-[#1B2B4B]">
+                                            <p className="text-emerald-700">{formatMoney(pet.pagado)}</p>
+                                            {pet.cubierto > pet.pagado && <p className="text-[10px] text-blue-700">Promoción: {formatMoney(pet.cubierto - pet.pagado)}</p>}
                                         </td>
-
-                                        <td className="px-4 py-3 text-[11px] text-[#1B2B4B] max-w-80">
-                                            <div className="line-clamp-3">
-                                                {orden.detallePagos}
-                                            </div>
+                                        {petIndex === 0 && (
+                                            <>
+                                                <td rowSpan={pets.length} className="px-4 py-3 align-top text-[12px] font-semibold text-[#1B2B4B]">
+                                                    {formatMoney(Number(orden.valorTotal || 0))}
+                                                </td>
+                                                <td rowSpan={pets.length} className={`px-4 py-3 align-top text-[12px] font-extrabold ${orden.saldoPendiente > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                                    {formatMoney(orden.saldoPendiente)}
+                                                </td>
+                                                <td rowSpan={pets.length} className="px-4 py-3 align-top">
+                                                    <span className={`inline-block text-center text-[11px] font-bold px-2.5 py-1 rounded-full ${orden.estadoPago === "Pagado" ? "bg-emerald-100 text-emerald-700" : orden.estadoPago === "Pago parcial" ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"}`}>
+                                                        {orden.estadoPago || "Pendiente por pago"}
+                                                    </span>
+                                                </td>
+                                            </>
+                                        )}
+                                        <td className="px-4 py-3 align-top">
+                                            <button type="button" onClick={() => openPayment(orden, pet.id.includes("-sin-mascota") ? undefined : pet.id)} className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#2BB5C3] px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-[#239aa6]">
+                                                <Plus size={12} /> Ingresar pago
+                                            </button>
                                         </td>
-
-                                        <td className="px-4 py-3 text-[12px] font-semibold text-[#1B2B4B]">
-                                            {formatMoney(orden.totalPagado)}
-                                        </td>
-
-                                        <td className="px-4 py-3 text-[12px] font-semibold text-[#1B2B4B]">
-                                            {formatMoney(Number(orden.valorTotal || 0))}
-                                        </td>
-
-                                        <td className={`px-4 py-3 text-[12px] font-extrabold ${ orden.saldoPendiente > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                                            {formatMoney(orden.saldoPendiente)}
-                                        </td>
-
-                                        <td className="px-4 py-3">
-                                            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${orden.estadoPago === "Pagado" ? "bg-emerald-100 text-emerald-700" : orden.estadoPago === "Pago parcial" ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"}`}>
-                                                {orden.estadoPago || "Pendiente por pago"}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
+                                        </tr>
+                                    ));
+                                })}
                         </tbody>
                     </table>
                 </div>
             </div>
+            {paymentOrder && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B2B4B]/55 p-4">
+                    <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+                        <div className="flex items-center justify-between rounded-t-2xl bg-[#1B2B4B] px-5 py-4">
+                            <div>
+                                <h2 className="text-[15px] font-extrabold text-white">Ingresar pago</h2>
+                                <p className="text-[11px] text-white/60">{paymentOrder.cliente} · {paymentOrder.factura}</p>
+                            </div>
+                            <button type="button" onClick={closePayment} className="text-white/80 hover:text-white"><X size={18} /></button>
+                        </div>
+                        <div className="space-y-4 p-5">
+                            <div>
+                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Mascota</label>
+                                <select value={paymentPetId} onChange={(event) => {
+                                    const petId = event.target.value;
+                                    const pet = paymentOrder.mascotas.find((item) => item.id === petId);
+                                    const covered = pet ? paymentOrder.pagos.filter((pago) => pago.mascotaId === petId).reduce((sum, pago) => sum + Number(pago.valor || 0), 0) : 0;
+                                    setPaymentPetId(petId);
+                                    setPaymentAmount(pet ? String(Math.max(0, calculatePetServicesTotal(pet.servicios) - covered)) : "");
+                                }} className={IC}>
+                                    {paymentOrder.mascotas.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre || "Sin nombre"} · Orden {pet.numeroOrden || "Sin número"}</option>)}
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Valor recibido</label><input type="number" min="1" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className={IC} /></div>
+                                <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Método</label><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className={IC}><option value="">Seleccionar...</option>{MEDIOS_PAGO.map((medio) => <option key={medio} value={medio}>{medio}</option>)}</select></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div><label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]"><CalendarDays size={12} /> Fecha del pago</label><input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} className={IC} /></div>
+                                <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Concepto</label><input value={paymentConcept} onChange={(event) => setPaymentConcept(event.target.value)} placeholder="Ej: Abono pendiente" className={IC} /></div>
+                            </div>
+                            <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+                                <button type="button" onClick={closePayment} className="rounded-xl bg-gray-100 px-4 py-2 text-[12px] font-bold text-gray-600">Cancelar</button>
+                                <button type="button" disabled={!paymentAmount || Number(paymentAmount) <= 0 || !paymentMethod} onClick={savePayment} className="inline-flex items-center gap-1.5 rounded-xl bg-[#2BB5C3] px-4 py-2 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><Check size={14} /> Guardar pago</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
