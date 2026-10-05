@@ -168,7 +168,7 @@ const initialResponsables: Responsable[] = [
 ];
 
 function App() {
-  const [activeModule, setActiveModule] = useState<ModuleKey>("services");
+  const [activeModule, setActiveModule] = useState<ModuleKey>("dashboard");
   const [ordenes, setOrdenes] = useState<Orden[]>(loadOrdenes);
   const [clientes, setClientes] = useState<Cliente[]>(initialClientes);
   const [medicos, setMedicos] = useState<Medico[]>(initialMedicos);
