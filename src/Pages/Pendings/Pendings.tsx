@@ -1,6 +1,6 @@
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { Orden, PaymentRow } from "../../types";
-import { AlertTriangle, CalendarDays, Check, Filter, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, Download, Filter, Plus, Search, X } from "lucide-react";
 import { currentDate, IC, MEDIOS_PAGO } from "../../constants";
 import { calculatePetServicesTotal } from "../../constants/services";
 
@@ -158,6 +158,75 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
     }, [ordenes, search, veterinaria, estadoFiltro]);
 
     const totalPendienteGeneral = pendientes.reduce((sum, orden) => sum + orden.saldoPendiente, 0);
+    const downloadPendings = () => {
+        const headers = [
+            "Fecha",
+            "Establecimiento",
+            "N° Orden",
+            "Cantidad de exámenes",
+            "Descripción servicio",
+            "Nombre mascota",
+            "Medio de pago",
+            "Tipo de servicio",
+            "Pagado",
+            "Valor total",
+            "Saldo pendiente",
+            "Estado",
+        ];
+        const rows = pendientes.flatMap((orden) => {
+            const pets = orden.mascotasDetalle.length > 0
+                ? orden.mascotasDetalle
+                : [{
+                    id: `${orden.id}-sin-mascota`,
+                    nombre: "Sin mascota",
+                    numeroOrden: orden.numeroOrden || "Sin número",
+                    examenes: orden.exámenes,
+                    valor: Number(orden.valorTotal || 0),
+                    pagado: orden.totalPagado,
+                    cubierto: orden.totalCubierto,
+                    saldo: orden.saldoPendiente,
+                    pagos: orden.pagos ?? [],
+                }];
+
+            return pets.map((pet) => {
+                const paymentMethods = pet.pagos
+                    .map((pago) => pago.medio || pago.tipo)
+                    .filter(Boolean);
+                const examCount = pet.id.endsWith("-sin-mascota")
+                    ? (orden.mascotas ?? []).flatMap((mascota) => mascota.servicios ?? [])
+                        .reduce((sum, servicio) => sum + Number(servicio.cantidad || 0), 0)
+                    : (orden.mascotas.find((mascota) => mascota.id === pet.id)?.servicios ?? [])
+                        .reduce((sum, servicio) => sum + Number(servicio.cantidad || 0), 0);
+
+                return [
+                    orden.fecha || "",
+                    orden.cliente || "Sin establecimiento",
+                    pet.numeroOrden || orden.numeroOrden || "Sin número",
+                    examCount,
+                    pet.examenes,
+                    pet.nombre,
+                    paymentMethods.length > 0 ? Array.from(new Set(paymentMethods)).join(", ") : "NO PAGÓ",
+                    orden.tipoServicio || "EXAMEN",
+                    pet.pagado,
+                    pet.valor,
+                    pet.saldo,
+                    orden.estadoPago || "Pendiente por pago",
+                ];
+            });
+        });
+
+        const escapeCsvValue = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
+        const csv = `\uFEFF${[headers, ...rows].map((row) => row.map(escapeCsvValue).join(";")).join("\r\n")}`;
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `pendientes-${currentDate()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    };
     const openPayment = (orden: Orden, petId = "") => {
         const pet = orden.mascotas.find((item) => item.id === petId) ?? orden.mascotas[0];
         const petPayments = pet ? orden.pagos.filter((pago) => pago.mascotaId === pet.id) : [];
@@ -174,11 +243,22 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
     const closePayment = () => setPaymentOrder(null);
     const savePayment = () => {
         if (!paymentOrder || !paymentAmount || Number(paymentAmount) <= 0 || !paymentMethod || !paymentDate) return;
+        const selectedPet = paymentOrder.mascotas.find((pet) => pet.id === paymentPetId);
+        const paidForPet = selectedPet
+            ? paymentOrder.pagos
+                .filter((pago) => pago.mascotaId === paymentPetId)
+                .reduce((sum, pago) => sum + Number(pago.valor || 0), 0)
+            : paymentOrder.pagos.reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
+        const paymentLimit = selectedPet
+            ? calculatePetServicesTotal(selectedPet.servicios)
+            : Number(paymentOrder.valorTotal || 0);
+        const allowedAmount = Math.min(Number(paymentAmount), Math.max(0, paymentLimit - paidForPet));
+        if (allowedAmount <= 0) return;
         const payment: PaymentRow = {
             id: crypto.randomUUID(),
             tipo: "Pago",
             medio: paymentMethod,
-            valor: paymentAmount,
+            valor: String(allowedAmount),
             fecha: paymentDate,
             mascotaId: paymentPetId,
             concepto: paymentConcept,
@@ -199,7 +279,7 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
 
     return(
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-4">
                 <div>
                     <h1 className="text-[22px] font-extrabold text-[#1B2B4B] tracking-tight">
                         Módulo de pendientes
@@ -217,6 +297,15 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
                         {formatMoney(totalPendienteGeneral)}
                     </p>
                 </div>
+                <button
+                    type="button"
+                    onClick={downloadPendings}
+                    disabled={pendientes.length === 0}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#1B2B4B] px-4 py-2.5 text-[12px] font-bold text-white shadow-sm transition-colors hover:bg-[#263b62] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    <Download size={15} />
+                    Descargar pendientes
+                </button>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
@@ -342,15 +431,15 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td rowSpan={pets.length} className="px-4 py-3 align-top text-[12px] font-bold text-[#1B2B4B]">
-                                                    {orden.numeroOrden || pets.map((item) => item.numeroOrden).join(", ") || "—"}
-                                                </td>
-                                                <td rowSpan={pets.length} className="px-4 py-3 align-top text-[12px] text-[#6B7A99] whitespace-nowrap">
-                                                    {orden.fecha || "—"}
-                                                </td>
                                             </>
                                         )}
 
+                                        <td className="px-4 py-3 align-top text-[12px] font-bold text-[#1B2B4B]">
+                                            {pet.numeroOrden || orden.numeroOrden || "—"}
+                                        </td>
+                                        <td className="px-4 py-3 align-top text-[12px] text-[#6B7A99] whitespace-nowrap">
+                                            {orden.fecha || "—"}
+                                        </td>
                                         <td className="px-4 py-3 align-top text-[12px] text-[#1B2B4B]">
                                             <p className="font-extrabold">{pet.nombre}</p>
                                             <p className="text-[10px] text-[#6B7A99]">Orden {pet.numeroOrden}</p>
@@ -363,21 +452,26 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
                                             <p className="text-emerald-700">{formatMoney(pet.pagado)}</p>
                                             {pet.cubierto > pet.pagado && <p className="text-[10px] text-blue-700">Promoción: {formatMoney(pet.cubierto - pet.pagado)}</p>}
                                         </td>
-                                        {petIndex === 0 && (
-                                            <>
-                                                <td rowSpan={pets.length} className="px-4 py-3 align-top text-[12px] font-semibold text-[#1B2B4B]">
-                                                    {formatMoney(Number(orden.valorTotal || 0))}
-                                                </td>
-                                                <td rowSpan={pets.length} className={`px-4 py-3 align-top text-[12px] font-extrabold ${orden.saldoPendiente > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                                                    {formatMoney(orden.saldoPendiente)}
-                                                </td>
-                                                <td rowSpan={pets.length} className="px-4 py-3 align-top">
-                                                    <span className={`inline-block text-center text-[11px] font-bold px-2.5 py-1 rounded-full ${orden.estadoPago === "Pagado" ? "bg-emerald-100 text-emerald-700" : orden.estadoPago === "Pago parcial" ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"}`}>
-                                                        {orden.estadoPago || "Pendiente por pago"}
+                                        <td className="px-4 py-3 align-top text-[12px] font-semibold text-[#1B2B4B]">
+                                            {formatMoney(pet.valor)}
+                                        </td>
+                                        <td className={`px-4 py-3 align-top text-[12px] font-extrabold ${pet.saldo > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                            {formatMoney(pet.saldo)}
+                                        </td>
+                                        <td className="px-4 py-3 align-top">
+                                            {(() => {
+                                                const estado = pet.saldo <= 0
+                                                    ? "Pagado"
+                                                    : pet.pagado > 0
+                                                        ? "Pago parcial"
+                                                        : "Pendiente por pago";
+                                                return (
+                                                    <span className={`inline-block text-center text-[11px] font-bold px-2.5 py-1 rounded-full ${estado === "Pagado" ? "bg-emerald-100 text-emerald-700" : estado === "Pago parcial" ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"}`}>
+                                                        {estado}
                                                     </span>
-                                                </td>
-                                            </>
-                                        )}
+                                                );
+                                            })()}
+                                        </td>
                                         <td className="px-4 py-3 align-top">
                                             <button type="button" onClick={() => openPayment(orden, pet.id.includes("-sin-mascota") ? undefined : pet.id)} className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#2BB5C3] px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-[#239aa6]">
                                                 <Plus size={12} /> Ingresar pago
@@ -414,7 +508,7 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                                <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Valor recibido</label><input type="number" min="1" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className={IC} /></div>
+                                <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Valor recibido</label><input type="number" min="1" max={paymentOrder.mascotas.find((pet) => pet.id === paymentPetId) ? Math.max(0, calculatePetServicesTotal(paymentOrder.mascotas.find((pet) => pet.id === paymentPetId)?.servicios ?? []) - paymentOrder.pagos.filter((pago) => pago.mascotaId === paymentPetId).reduce((sum, pago) => sum + Number(pago.valor || 0), 0)) : Number(paymentOrder.valorTotal || 0)} value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className={IC} /></div>
                                 <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Método</label><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className={IC}><option value="">Seleccionar...</option>{MEDIOS_PAGO.map((medio) => <option key={medio} value={medio}>{medio}</option>)}</select></div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">

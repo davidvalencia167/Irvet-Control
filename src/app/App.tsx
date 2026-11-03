@@ -12,6 +12,7 @@ import {
   SERVICIOS_PAQUETES,
   SERVICIOS_POR_TIPO,
   type ServicioCatalogo,
+  calculatePetServicesTotal,
 } from "../constants/services";
 import { currentDate } from "../constants";
 
@@ -56,13 +57,12 @@ function loadOrdenes(): Orden[] {
 
   try {
     const raw = JSON.parse(saved) as Partial<Orden>[];
-    return raw.map((orden) => ({
-      ...orden,
-      mascotas: (orden.mascotas ?? []).map((mascota) => ({
+    return raw.map((orden) => {
+      const mascotas = (orden.mascotas ?? []).map((mascota) => ({
         ...mascota,
         servicios: mascota.servicios ?? [],
-      })),
-      pagos: (orden.pagos ?? []).map((pago) => ({
+      }));
+      const pagos = (orden.pagos ?? []).map((pago) => ({
         id: pago.id ?? crypto.randomUUID(),
         tipo: pago.tipo ?? "Pago",
         medio: pago.medio ?? "",
@@ -70,14 +70,33 @@ function loadOrdenes(): Orden[] {
         fecha: pago.fecha ?? orden.fecha ?? currentDate(),
         mascotaId: pago.mascotaId ?? "",
         concepto: pago.concepto ?? "",
-      })),
+      }));
+      const cubiertoPorMascota = new Map<string, number>();
+      const pagosSinExcedente = pagos.map((pago) => {
+        const valor = Math.max(0, Number(pago.valor || 0));
+        const mascota = mascotas.find((item) => item.id === pago.mascotaId);
+        const limite = mascota
+          ? calculatePetServicesTotal(mascota.servicios)
+          : Number(orden.valorTotal || 0);
+        const usado = cubiertoPorMascota.get(pago.mascotaId) ?? 0;
+        const disponible = Math.max(0, limite - usado);
+        const valorPermitido = Math.min(valor, disponible);
+        cubiertoPorMascota.set(pago.mascotaId, usado + valorPermitido);
+        return { ...pago, valor: String(valorPermitido) };
+      });
+
+      return ({
+      ...orden,
+      mascotas,
+      pagos: pagosSinExcedente,
       cantidad: orden.cantidad ?? "0",
       estadoPago: orden.estadoPago ?? "Pendiente por pago",
       estadoOrden:
         orden.estadoOrden ??
         ((orden.mascotas ?? []).length ? "Completada" : "Pendiente de recepción"),
       auditoria: orden.auditoria ?? [],
-    })) as Orden[];
+      }) as Orden;
+    });
   } catch {
     return [];
   }

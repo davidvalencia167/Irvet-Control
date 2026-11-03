@@ -50,18 +50,19 @@ function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRem
       {canRemove && <button type="button" onClick={e => { e.stopPropagation(); onRemove(pet.id); }} className="p-1 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100"><Trash2 size={13}/></button>}
       {open ? <ChevronUp size={15} className="text-gray-400"/> : <ChevronDown size={15} className="text-gray-400"/>}
     </div>
-    {open && <div className="p-4 space-y-5 border-t border-[rgba(27,43,75,0.06)]">
+    {open && <div className="p-4 grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(400px,0.9fr)] gap-5 items-start border-t border-[rgba(27,43,75,0.06)]">
+      <div className="space-y-5">
       <section className="space-y-3">
         <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos de la mascota</p><p className="text-[10px] text-[#6B7A99]">Identificación y características del paciente.</p></div>
-        <div className="grid grid-cols-4 gap-3">
-          <div className="col-span-2"><Label text="N° Orden asignado por laboratorio"/><input value={pet.numeroOrden} onChange={e => update({ numeroOrden: e.target.value })} placeholder="Ej: 106025" className={IC}/></div>
-          <div className="col-span-2"><Label text="Nombre de la Mascota" required/><input value={pet.nombre} onChange={e => update({ nombre: e.target.value })} placeholder="Ej: Rocko" className={IC}/></div>
-          <div><Label text="Especie"/><select value={pet.especie} onChange={e => update({ especie: e.target.value, raza: "" })} className={IC}><option value="">Seleccionar especie...</option>{SPECIES.map(s => <option key={s}>{s}</option>)}</select></div>
-          <div className="col-span-2"><Label text="Raza"/><select value={pet.raza} onChange={e => update({ raza: e.target.value })} disabled={!pet.especie} className={`${IC} disabled:opacity-50`}><option value="">{pet.especie ? "Seleccionar raza..." : "Seleccione primero la especie"}</option>{breeds.map(b => <option key={b}>{b}</option>)}</select></div>
-          <div><Label text="Sexo"/><select value={pet.sexo} onChange={e => update({ sexo: e.target.value })} className={IC}><option value="">Seleccionar...</option><option>Macho</option><option>Hembra</option></select></div>
-          <div><Label text="Edad"/><div className="grid grid-cols-2 gap-2"><input type="number" min="0" value={pet.edadAnios} onChange={e => update({ edadAnios: e.target.value, edad: `${e.target.value || "0"} años, ${pet.edadMeses || "0"} meses` })} placeholder="Años" className={IC}/><input type="number" min="0" max="11" value={pet.edadMeses} onChange={e => update({ edadMeses: e.target.value, edad: `${pet.edadAnios || "0"} años, ${e.target.value || "0"} meses` })} placeholder="Meses" className={IC}/></div></div>
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+          <div className="sm:col-span-2"><Label text="N° Orden"/><input value={pet.numeroOrden} onChange={e => update({ numeroOrden: e.target.value })} placeholder="Ej: 106025" className={IC}/></div>
+          <div className="sm:col-span-4"><Label text="Nombre de la Mascota" required/><input value={pet.nombre} onChange={e => update({ nombre: e.target.value })} placeholder="Ej: Rocko" className={IC}/></div>
+          <div className="sm:col-span-4"><Label text="Especie"/><select value={pet.especie} onChange={e => update({ especie: e.target.value, raza: "" })} className={IC}><option value="">Seleccionar especie...</option>{SPECIES.map(s => <option key={s}>{s}</option>)}</select></div>
+          <div className="sm:col-span-4"><Label text="Raza"/><select value={pet.raza} onChange={e => update({ raza: e.target.value })} disabled={!pet.especie} className={`${IC} disabled:opacity-50`}><option value="">{pet.especie ? "Seleccionar raza..." : "Seleccione primero la especie"}</option>{breeds.map(b => <option key={b}>{b}</option>)}</select></div>
+          <div className="sm:col-span-3"><Label text="Sexo"/><select value={pet.sexo} onChange={e => update({ sexo: e.target.value })} className={IC}><option value="">Seleccionar...</option><option>Macho</option><option>Hembra</option></select></div>
+          <div className="sm:col-span-4"><Label text="Edad"/><div className="grid grid-cols-2 gap-2"><label className="relative"><span className="absolute left-3 top-1.5 text-[9px] font-bold uppercase tracking-wide text-[#6B7A99]">Años</span><input type="number" min="0" value={pet.edadAnios} onChange={e => update({ edadAnios: e.target.value, edad: `${e.target.value || "0"} años, ${pet.edadMeses || "0"} meses` })} aria-label="Edad en años" className={`${IC} pt-4`}/></label><label className="relative"><span className="absolute left-3 top-1.5 text-[9px] font-bold uppercase tracking-wide text-[#6B7A99]">Meses</span><input type="number" min="0" max="11" value={pet.edadMeses} onChange={e => update({ edadMeses: e.target.value, edad: `${pet.edadAnios || "0"} años, ${e.target.value || "0"} meses` })} aria-label="Edad en meses" className={`${IC} pt-4`}/></label></div></div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[92%]">
           <div><Label text="Estado de la muestra"/><select value={pet.estadoMuestra} onChange={e => update({ estadoMuestra: e.target.value as PetEntry["estadoMuestra"] })} className={IC}><option>Normal</option><option>Coagulada</option></select></div>
           <div><Label text="Hora de envío"/><input type="time" value={pet.horaEnvio} onChange={e => update({ horaEnvio: e.target.value })} className={IC}/></div>
         </div>
@@ -77,27 +78,25 @@ function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRem
 
       <section className="space-y-3 border-t border-[rgba(27,43,75,0.08)] pt-5">
         <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos del propietario</p><p className="text-[10px] text-[#6B7A99]">Información de contacto del responsable de la mascota.</p></div>
-        <div className="grid grid-cols-4 gap-3">
-          <div className="col-span-2"><Label text="Propietario"/><input value={pet.propietario} onChange={e => update({ propietario: e.target.value })} placeholder="Nombre del dueño" className={IC}/></div>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="sm:col-span-2"><Label text="Propietario"/><input value={pet.propietario} onChange={e => update({ propietario: e.target.value })} placeholder="Nombre del dueño" className={IC}/></div>
           <div><Label text="N° Celular"/><input value={pet.telefono} onChange={e => update({ telefono: e.target.value })} placeholder="3001234567" className={IC}/></div>
           <div><Label text="Correo Electrónico"/><input value={pet.correo} onChange={e => update({ correo: e.target.value })} placeholder="correo@email.com" className={IC}/></div>
         </div>
       </section>
 
-      <div className="rounded-xl border border-[rgba(27,43,75,0.08)] p-4">
-        <div className="flex items-center justify-between mb-3"><div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Servicios / Exámenes</p><p className="text-[10px] text-[#6B7A99]">Los servicios se registran para esta mascota.</p></div><span className="text-[11px] font-bold bg-[#2BB5C3]/10 text-[#2BB5C3] px-2 py-1 rounded-lg">{pet.servicios.length} seleccionados</span></div>
-        <div className="grid grid-cols-3 gap-3 mb-3">
-          <div><Label text="Tipo de servicio"/><select value={tipo} onChange={e => {setTipo(e.target.value); setSearch("")}} className={IC}><option value="">Seleccionar tipo...</option>{tipos.map(t => <option key={t}>{t}</option>)}</select></div>
-          <div className="col-span-2"><Label text="Buscar descripción"/><input value={search} onChange={e => setSearch(e.target.value)} disabled={!tipo} placeholder="Buscar examen..." className={`${IC} disabled:opacity-50`}/></div>
-        </div>
-        {tipo && <div className="max-h-36 overflow-y-auto space-y-2 rounded-xl bg-[#F8FAFC] p-3">{available.map(service => <label key={`${service.categoria}-${service.nombre}`} className="flex items-start gap-2 text-[12px] cursor-pointer"><input type="checkbox" checked={pet.servicios.some(s => s.descripcion === service.nombre)} onChange={() => toggleService(service)} className="mt-0.5 accent-[#2BB5C3]"/><span><span className="font-semibold">{service.nombre}</span> <span className="text-[#6B7A99]">({service.categoria}) · ${service.precio.toLocaleString("es-CO")}</span></span></label>)}</div>}
-        {pet.servicios.length > 0 && <div className="mt-3 space-y-1.5">{pet.servicios.map(s => <div key={s.id} className="flex items-center justify-between text-[11px] bg-white border border-[rgba(27,43,75,0.06)] rounded-lg px-3 py-2"><span><b>{s.tipo}</b> · {s.descripcion}</span><span className="font-bold">${s.precio.toLocaleString("es-CO")}</span></div>)}<div className="flex items-center justify-between border-t border-[rgba(27,43,75,0.1)] pt-2 text-[12px] font-extrabold text-[#1B2B4B]"><span>Total de esta mascota</span><span>${calculatePetServicesTotal(pet.servicios).toLocaleString("es-CO")}</span></div></div>}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div><Label text="Estado de la muestra"/><select value={pet.estadoMuestra} onChange={e => update({ estadoMuestra: e.target.value as PetEntry["estadoMuestra"] })} className={IC}><option>Normal</option><option>Coagulada</option></select></div>
-        <div><Label text="Hora de envío"/><input type="time" value={pet.horaEnvio} onChange={e => update({ horaEnvio: e.target.value })} className={IC}/></div>
+      <div className="rounded-xl border border-[rgba(27,43,75,0.08)] p-4 lg:sticky lg:top-4">
+        <div className="flex items-center justify-between mb-3"><div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Servicios / Exámenes</p><p className="text-[10px] text-[#6B7A99]">Los servicios se registran para esta mascota.</p></div><span className="text-[11px] font-bold bg-[#2BB5C3]/10 text-[#2BB5C3] px-2 py-1 rounded-lg">{pet.servicios.length} seleccionados</span></div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          <div><Label text="Tipo de servicio"/><select value={tipo} onChange={e => {setTipo(e.target.value); setSearch("")}} className={IC}><option value="">Seleccionar tipo...</option>{tipos.map(t => <option key={t}>{t}</option>)}</select></div>
+          <div className="sm:col-span-2"><Label text="Buscar descripción"/><input value={search} onChange={e => setSearch(e.target.value)} disabled={!tipo} placeholder="Buscar examen..." className={`${IC} disabled:opacity-50`}/></div>
+        </div>
+        {tipo && <div className="max-h-36 overflow-y-auto space-y-2 rounded-xl bg-[#F8FAFC] p-3">{available.map(service => <label key={`${service.categoria}-${service.nombre}`} className="flex items-start gap-2 text-[12px] cursor-pointer"><input type="checkbox" checked={pet.servicios.some(s => s.descripcion === service.nombre)} onChange={() => toggleService(service)} className="mt-0.5 accent-[#2BB5C3]"/><span><span className="font-semibold">{service.nombre}</span> <span className="text-[#6B7A99]">({service.categoria}) · ${service.precio.toLocaleString("es-CO")}</span></span></label>)}</div>}
+        {pet.servicios.length > 0 && <div className="mt-3 space-y-1.5">{pet.servicios.map(s => <div key={s.id} className="flex items-start justify-between gap-2 text-[11px] bg-white border border-[rgba(27,43,75,0.06)] rounded-lg px-3 py-2"><span className="min-w-0 break-words"><b>{s.tipo}</b> · {s.descripcion}</span><span className="font-bold shrink-0">${s.precio.toLocaleString("es-CO")}</span></div>)}<div className="flex items-center justify-between border-t border-[rgba(27,43,75,0.1)] pt-2 text-[12px] font-extrabold text-[#1B2B4B]"><span>Total de esta mascota</span><span>${calculatePetServicesTotal(pet.servicios).toLocaleString("es-CO")}</span></div></div>}
       </div>
+
     </div>}
   </div>;
 }
