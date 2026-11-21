@@ -195,7 +195,7 @@ export default function Services({
       const original = ordenes.find((o) => o.id === editingId);
       if (!original) return;
       const changes = detectChanges(original, form);
-      if (changes.length) {
+      if (finalize && changes.length) {
         setAuditState({
           changes,
           pendingForm: form,

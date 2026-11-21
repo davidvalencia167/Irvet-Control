@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CourierExpense, FormOrden, PaymentRow, PetEntry } from "../../types";
 import { AlertCircle, ChevronDown, ChevronUp, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { CLIENTES, DOMICILIARIOS, EMPTY_FORM, IC, MEDIOS_PAGO, newCourierExpense, newPaymentRow, newPet, RESPONSABLES } from "../../constants";
@@ -78,21 +78,34 @@ const TABS = [
   { id: "observaciones", emoji: "📝", label: "Observaciones" },
 ];
 
-function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRemove, canRemove }: {
+function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRemove, canRemove, shouldAutoFocus }: {
   pet: PetEntry; index: number; catalogo: Record<string, ServicioCatalogo[]>;
   medico: { nombre: string; matricula: string };
   onChange: (id: string, patch: Partial<PetEntry>) => void;
   onMedicoChange: (patch: { nombreMedico?: string; matriculaMedico?: string }) => void;
   onRemove: (id: string) => void; canRemove: boolean;
+  shouldAutoFocus: boolean;
 }) {
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState("");
+  const cardRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const breeds = BREEDS_BY_SPECIES[pet.especie] ?? [];
   const tipos = Object.keys(catalogo).filter((type) => type !== "Paquete" && type !== "Paquetes");
   const [tipo, setTipo] = useState("");
   const available = useMemo(() => (tipo ? catalogo[tipo] ?? [] : []).filter(s => `${s.nombre} ${s.categoria}`.toLowerCase().includes(search.toLowerCase())), [catalogo, tipo, search]);
 
   const update = (patch: Partial<PetEntry>) => onChange(pet.id, patch);
+
+  useEffect(() => {
+    if (!shouldAutoFocus) return;
+    const frame = window.requestAnimationFrame(() => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      nameInputRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [shouldAutoFocus]);
+
   const toggleService = (service: ServicioCatalogo) => {
     const exists = pet.servicios.some(s => s.descripcion === service.nombre);
     const servicios = exists
@@ -101,7 +114,7 @@ function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRem
     update({ servicios });
   };
 
-  return <div className="border border-[rgba(27,43,75,0.1)] rounded-2xl overflow-hidden">
+  return <div ref={cardRef} data-pet-card={pet.id} className="border border-[rgba(27,43,75,0.1)] rounded-2xl overflow-hidden scroll-mt-4">
     <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none" style={{ background: open ? "#F8FAFC" : "white" }} onClick={() => setOpen(o => !o)}>
       <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-bold shrink-0" style={{ background: "#2BB5C3" }}>{index + 1}</div>
       <span className="flex-1 text-[13px] font-semibold text-[#1B2B4B]"><span className="block">{pet.nombre || `Mascota ${index + 1}`}</span><span className="block text-[10px] font-mono font-normal text-[#6B7A99]">Orden {pet.numeroOrden || "Sin asignar"} · {pet.servicios.length} servicio{pet.servicios.length !== 1 ? "s" : ""}</span></span>
@@ -115,11 +128,11 @@ function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRem
         <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos de la mascota</p><p className="text-[10px] text-[#6B7A99]">Identificación y características del paciente.</p></div>
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
           <div className="sm:col-span-2"><Label text="N° Orden"/><input value={pet.numeroOrden} onChange={e => update({ numeroOrden: e.target.value })} placeholder="Ej: 106025" className={IC}/></div>
-          <div className="sm:col-span-4"><Label text="Nombre de la Mascota" required/><input value={pet.nombre} onChange={e => update({ nombre: e.target.value })} placeholder="Ej: Rocko" className={IC}/></div>
-          <div className="sm:col-span-4"><Label text="Especie"/><select value={pet.especie} onChange={e => update({ especie: e.target.value, raza: "" })} className={IC}><option value="">Seleccionar especie...</option>{SPECIES.map(s => <option key={s}>{s}</option>)}</select></div>
-          <div className="sm:col-span-4"><Label text="Raza"/><select value={pet.raza} onChange={e => update({ raza: e.target.value })} disabled={!pet.especie} className={`${IC} disabled:opacity-50`}><option value="">{pet.especie ? "Seleccionar raza..." : "Seleccione primero la especie"}</option>{breeds.map(b => <option key={b}>{b}</option>)}</select></div>
-          <div className="sm:col-span-3"><Label text="Sexo"/><select value={pet.sexo} onChange={e => update({ sexo: e.target.value })} className={IC}><option value="">Seleccionar...</option><option>Macho</option><option>Hembra</option></select></div>
-          <div className="sm:col-span-4"><Label text="Edad"/><div className="grid grid-cols-2 gap-2"><label className="relative"><span className="absolute left-3 top-1.5 text-[9px] font-bold uppercase tracking-wide text-[#6B7A99]">Años</span><input type="number" min="0" value={pet.edadAnios} onChange={e => update({ edadAnios: e.target.value, edad: `${e.target.value || "0"} años, ${pet.edadMeses || "0"} meses` })} aria-label="Edad en años" className={`${IC} pt-4`}/></label><label className="relative"><span className="absolute left-3 top-1.5 text-[9px] font-bold uppercase tracking-wide text-[#6B7A99]">Meses</span><input type="number" min="0" max="11" value={pet.edadMeses} onChange={e => update({ edadMeses: e.target.value, edad: `${pet.edadAnios || "0"} años, ${e.target.value || "0"} meses` })} aria-label="Edad en meses" className={`${IC} pt-4`}/></label></div></div>
+          <div className="sm:col-span-4"><Label text="Nombre de la Mascota" required/><input ref={nameInputRef} value={pet.nombre} onChange={e => update({ nombre: e.target.value })} placeholder="Ej: Rocko" className={IC}/></div>
+          <div className="sm:col-span-4"><Label text="Especie (opcional)"/><select value={pet.especie} onChange={e => update({ especie: e.target.value, raza: "" })} className={IC}><option value="">Seleccionar especie...</option>{SPECIES.map(s => <option key={s}>{s}</option>)}</select></div>
+          <div className="sm:col-span-4"><Label text="Raza (opcional)"/><select value={pet.raza} onChange={e => update({ raza: e.target.value })} disabled={!pet.especie} className={`${IC} disabled:opacity-50`}><option value="">{pet.especie ? "Seleccionar raza..." : "Seleccione primero la especie"}</option>{breeds.map(b => <option key={b}>{b}</option>)}</select></div>
+          <div className="sm:col-span-3"><Label text="Sexo (opcional)"/><select value={pet.sexo} onChange={e => update({ sexo: e.target.value })} className={IC}><option value="">Seleccionar...</option><option>Macho</option><option>Hembra</option></select></div>
+          <div className="sm:col-span-4"><Label text="Edad (opcional)"/><div className="grid grid-cols-2 gap-2"><label className="relative"><span className="absolute left-3 top-1.5 text-[9px] font-bold uppercase tracking-wide text-[#6B7A99]">Años</span><input type="number" min="0" value={pet.edadAnios} onChange={e => update({ edadAnios: e.target.value, edad: `${e.target.value || "0"} años, ${pet.edadMeses || "0"} meses` })} aria-label="Edad en años" className={`${IC} pt-4`}/></label><label className="relative"><span className="absolute left-3 top-1.5 text-[9px] font-bold uppercase tracking-wide text-[#6B7A99]">Meses</span><input type="number" min="0" max="11" value={pet.edadMeses} onChange={e => update({ edadMeses: e.target.value, edad: `${pet.edadAnios || "0"} años, ${e.target.value || "0"} meses` })} aria-label="Edad en meses" className={`${IC} pt-4`}/></label></div></div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[92%]">
           <div><Label text="Estado de la muestra"/><select value={pet.estadoMuestra} onChange={e => update({ estadoMuestra: e.target.value as PetEntry["estadoMuestra"] })} className={IC}><option>Normal</option><option>Coagulada</option></select></div>
@@ -128,7 +141,7 @@ function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRem
       </section>
 
       <section className="space-y-3 border-t border-[rgba(27,43,75,0.08)] pt-5">
-        <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos del médico veterinario</p><p className="text-[10px] text-[#6B7A99]">Profesional remitente asociado a esta orden.</p></div>
+        <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos del médico veterinario</p><p className="text-[10px] text-[#6B7A99]">Opcional. Puede dejar estos campos vacíos si la veterinaria no los envía.</p></div>
         <div className="grid grid-cols-2 gap-3">
           <div><Label text="Nombre del médico veterinario"/><input value={medico.nombre} onChange={e => onMedicoChange({ nombreMedico: e.target.value })} placeholder="Nombre del médico" className={IC}/></div>
           <div><Label text="M.P."/><input value={medico.matricula} onChange={e => onMedicoChange({ matriculaMedico: e.target.value })} placeholder="MP-12345" className={IC}/></div>
@@ -136,7 +149,7 @@ function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRem
       </section>
 
       <section className="space-y-3 border-t border-[rgba(27,43,75,0.08)] pt-5">
-        <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos del propietario</p><p className="text-[10px] text-[#6B7A99]">Información de contacto del responsable de la mascota.</p></div>
+        <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos del propietario</p><p className="text-[10px] text-[#6B7A99]">Opcional. Puede dejar estos campos vacíos si no fueron enviados.</p></div>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div className="sm:col-span-2"><Label text="Propietario"/><input value={pet.propietario} onChange={e => update({ propietario: e.target.value })} placeholder="Nombre del dueño" className={IC}/></div>
           <div><Label text="N° Celular"/><input value={pet.telefono} onChange={e => update({ telefono: e.target.value })} placeholder="3001234567" className={IC}/></div>
@@ -507,6 +520,7 @@ interface OrderFormProps { factura: string; editingId: string | null; initialFor
 
 export default function OrderForm({ factura, editingId, initialForm, errors, catalogo, onSave, onClear, onCancelEdit }: OrderFormProps) {
   const [activeTab, setActiveTab] = useState("general");
+  const [focusPetId, setFocusPetId] = useState<string | null>(null);
   const [form, setForm] = useState<FormOrden>(() => initialForm ? { ...initialForm, mascotas: initialForm.mascotas.map(p => ({...p, servicios: p.servicios ?? []})), pagos: initialForm.pagos ?? [] } : EMPTY_FORM());
   const completing = Boolean(editingId);
   const upd = (k: keyof FormOrden, v: unknown) => setForm(f => ({...f,[k]:v}));
@@ -527,7 +541,11 @@ export default function OrderForm({ factura, editingId, initialForm, errors, cat
   }, [form.mascotas, form.pagos, form.valorTotal, form.estadoPago, form.cantidad, form.tipoServicio, form.descripcionServicio, form.serviciosSeleccionados]);
 
   const updatePet = (id:string, patch:Partial<PetEntry>) => setForm(f => ({...f, mascotas:f.mascotas.map(p => p.id === id ? {...p,...patch}:p)}));
-  const addPet = () => setForm(f => ({...f, mascotas:[...f.mascotas,newPet()]}));
+  const addPet = () => {
+    const pet = newPet();
+    setFocusPetId(pet.id);
+    setForm(f => ({...f, mascotas:[pet, ...f.mascotas]}));
+  };
   const removePet = (id:string) => setForm(f => ({...f, mascotas:f.mascotas.filter(p => p.id !== id)}));
   const addPay = () => setForm((form) => ({
     ...form,
@@ -538,7 +556,7 @@ export default function OrderForm({ factura, editingId, initialForm, errors, cat
   const addExpense = () => setForm(f => ({ ...f, gastosDomiciliario: [...(f.gastosDomiciliario ?? []), newCourierExpense(f.domiciliario, editingId ?? "")] }));
   const updateExpense = (id: string, key: keyof CourierExpense, value: string | boolean) => setForm(f => ({ ...f, gastosDomiciliario: (f.gastosDomiciliario ?? []).map(expense => expense.id === id ? { ...expense, [key]: value } : expense) }));
   const removeExpense = (id: string) => setForm(f => ({ ...f, gastosDomiciliario: (f.gastosDomiciliario ?? []).filter(expense => expense.id !== id) }));
-  const clear = () => { setForm(EMPTY_FORM()); setActiveTab("general"); onClear(); };
+  const clear = () => { setForm(EMPTY_FORM()); setFocusPetId(null); setActiveTab("general"); onClear(); };
 
   const tabHasError = (id:string) => id === "general" ? Boolean(errors.cliente) : id === "mascotas" ? Boolean(errors.mascotas || errors.servicios) : id === "pago" ? Boolean(errors.pagos) : false;
   const save = (finalize=false) => onSave(form, finalize);
@@ -551,7 +569,7 @@ export default function OrderForm({ factura, editingId, initialForm, errors, cat
     <div className="p-6">
       {activeTab === "general" && <div className="space-y-4"><div className="grid grid-cols-4 gap-4"><div><Label text="Fecha" required/><input type="date" value={form.fecha} readOnly className={`${IC} bg-[#F4F7FA]`}/></div><div><Label text="Hora de solicitud" required/><input type="time" value={form.horaSolicitud} readOnly className={`${IC} bg-[#F4F7FA]`}/></div><div><Label text="Responsable" required/><select value={form.responsable} onChange={e=>upd("responsable",e.target.value)} className={IC}>{RESPONSABLES.map(r=><option key={r}>{r}</option>)}</select></div><div><Label text="Prioridad"/><select value={form.prioridad} onChange={e=>upd("prioridad",e.target.value as FormOrden["prioridad"])} className={IC}><option>Normal</option><option>Prioritaria</option><option>Urgente</option></select></div></div><div><Label text="Cliente / Clínica" required/><ClientSearch key={form.cliente} value={form.cliente} options={CLIENTES} onChange={(cliente) => upd("cliente", cliente)} hasError={Boolean(errors.cliente)}/><FieldErr msg={errors.cliente}/></div><div><Label text="Domiciliario"/><select value={form.domiciliario} onChange={e=>upd("domiciliario",e.target.value)} className={IC}><option value="">Sin domicilio</option>{DOMICILIARIOS.map(d=><option key={d}>{d}</option>)}</select></div><div className="grid grid-cols-2 gap-4"><div><Label text="Hora de llamada"/><input type="time" value={form.horaLlamada} onChange={e=>upd("horaLlamada",e.target.value)} className={IC}/></div><div><Label text="Hora de llegada"/><input type="time" value={form.horaLlegada} onChange={e=>upd("horaLlegada",e.target.value)} className={IC}/></div></div><div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-[11px] text-amber-800"><b>Pendiente de recepción:</b> esta solicitud puede guardarse sin mascotas, servicios ni pago. Esos datos se completan cuando llegue el domiciliario.</div><Actions/></div>}
 
-      {activeTab === "mascotas" && <div className="space-y-4">{!completing && <div className="rounded-xl bg-[#F8FAFC] p-4 text-[12px] text-[#6B7A99] border border-[rgba(27,43,75,0.06)]">Primero guarda la solicitud general. Cuando llegue el domiciliario, abre la solicitud desde el historial y pulsa <b>Completar</b> para registrar las mascotas y sus exámenes.</div>}{completing && <><div className="flex items-center justify-between"><div><p className="text-[13px] text-[#6B7A99]"><span className="font-bold text-[#1B2B4B]">{form.mascotas.length}</span> mascota{form.mascotas.length!==1?"s":""} en esta orden</p><p className="text-[10px] text-[#6B7A99]">Una orden puede contener varias mascotas y varios servicios por mascota.</p></div><button type="button" onClick={addPet} className="flex items-center gap-2 text-white text-[13px] font-bold px-4 py-2 rounded-xl" style={{background:"#2BB5C3"}}><Plus size={15}/>Agregar mascota</button></div>{form.mascotas.length===0&&<div className="border border-dashed rounded-xl p-8 text-center text-[12px] text-[#6B7A99]">Aún no se han registrado mascotas.</div>}{form.mascotas.map((pet,i)=><PetCard key={pet.id} pet={pet} index={i} catalogo={catalogo} medico={{ nombre: form.nombreMedico, matricula: form.matriculaMedico }} onChange={updatePet} onMedicoChange={patch => setForm(f => ({ ...f, ...patch }))} onRemove={removePet} canRemove={form.mascotas.length>1}/>)}</>}<Actions/></div>}
+      {activeTab === "mascotas" && <div className="space-y-4">{!completing && <div className="rounded-xl bg-[#F8FAFC] p-4 text-[12px] text-[#6B7A99] border border-[rgba(27,43,75,0.06)]">Primero guarda la solicitud general. Cuando llegue el domiciliario, abre la solicitud desde el historial y pulsa <b>Completar</b> para registrar las mascotas y sus exámenes.</div>}{completing && <><div className="flex items-center justify-between"><div><p className="text-[13px] text-[#6B7A99]"><span className="font-bold text-[#1B2B4B]">{form.mascotas.length}</span> mascota{form.mascotas.length!==1?"s":""} en esta orden</p><p className="text-[10px] text-[#6B7A99]">Una orden puede contener varias mascotas y varios servicios por mascota.</p></div><button type="button" onClick={addPet} className="flex items-center gap-2 text-white text-[13px] font-bold px-4 py-2 rounded-xl" style={{background:"#2BB5C3"}}><Plus size={15}/>Agregar mascota</button></div>{form.mascotas.length===0&&<div className="border border-dashed rounded-xl p-8 text-center text-[12px] text-[#6B7A99]">Aún no se han registrado mascotas.</div>}{form.mascotas.map((pet,i)=><PetCard key={pet.id} pet={pet} index={i} catalogo={catalogo} medico={{ nombre: form.nombreMedico, matricula: form.matriculaMedico }} onChange={updatePet} onMedicoChange={patch => setForm(f => ({ ...f, ...patch }))} onRemove={removePet} canRemove={form.mascotas.length>1} shouldAutoFocus={pet.id === focusPetId}/>)}</>}<Actions/></div>}
 
       {activeTab === "pago" && <div className="space-y-4">{!completing ? <div className="rounded-xl bg-[#F8FAFC] p-4 text-[12px] text-[#6B7A99]">El pago se registra en la segunda etapa, cuando el domiciliario haya llegado y se conozcan los servicios reales.</div> : <PaymentBlock pagos={form.pagos} mascotas={form.mascotas} valorTotal={form.valorTotal} cliente={form.cliente} fecha={form.fecha} factura={factura} domiciliario={form.domiciliario} responsable={form.responsable} gastos={form.gastosDomiciliario ?? []} onAddRow={addPay} onUpdateRow={updatePay} onRemoveRow={removePay} onAddExpense={addExpense} onUpdateExpense={updateExpense} onRemoveExpense={removeExpense}/>}<Actions/></div>}
 
