@@ -1,10 +1,14 @@
-import { Search, Bell, Plus, ChevronDown } from "lucide-react";
+import { Search, Bell, Plus, LogOut } from "lucide-react";
+import { useState } from "react";
+import AccountSecurity from "../AccountSecurity/AccountSecurity";
 
 interface HeaderProps {
   editingId?: string | null;
   onNewOrder?: () => void;
   title?: string;
   showNewOrderButton?: boolean;
+  userName?: string;
+  onLogout?: () => void;
 }
 
 export default function Header({
@@ -12,7 +16,10 @@ export default function Header({
   onNewOrder,
   title,
   showNewOrderButton = true,
+  userName,
+  onLogout,
 }: HeaderProps) {
+  const [securityOpen, setSecurityOpen] = useState(false);
   const heading = title ?? (editingId ? "✏️ Editando Orden" : "Registro de Servicios");
 
   return (
@@ -37,11 +44,20 @@ export default function Header({
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: "#E8449A" }} />
         </button>
 
-        <div className="flex items-center gap-1.5 cursor-pointer">
+        <div className="flex items-center gap-1.5">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-[11px] font-bold" style={{ background: "#1B2B4B" }}>
-            GA
+            {userName?.slice(0, 2).toUpperCase() ?? "IR"}
           </div>
-          <ChevronDown size={13} className="text-gray-400" />
+          {onLogout && (
+            <>
+              <button onClick={() => setSecurityOpen(true)} title="Cambiar contraseña" className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-[#1B2B4B] transition-colors">
+                🔒
+              </button>
+              <button onClick={onLogout} title="Cerrar sesión" className="p-2 rounded-xl text-gray-400 hover:bg-gray-100 hover:text-[#1B2B4B] transition-colors">
+                <LogOut size={15} />
+              </button>
+            </>
+          )}
         </div>
 
         {showNewOrderButton && onNewOrder && (
@@ -55,6 +71,7 @@ export default function Header({
           </button>
         )}
       </div>
+      {securityOpen && <AccountSecurity onClose={() => setSecurityOpen(false)} />}
     </header>
   );
 }

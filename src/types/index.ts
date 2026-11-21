@@ -25,7 +25,7 @@ export interface PetEntry {
     servicios: ServicioOrden[];
 }
 
-export type PaymentType = "Pago" | "Promoción" | "Obsequio";
+export type PaymentType = "Pago" | "Promoción" | "Obsequio" | "Gasto" | "Ajuste financiero";
 
 export interface PaymentRow {
     id: string;
@@ -35,6 +35,29 @@ export interface PaymentRow {
     fecha: string;
     mascotaId: string;
     concepto: string;
+    consecutivo?: string;
+    cliente?: string;
+    domiciliario?: string;
+    responsable?: string;
+    observaciones?: string;
+    creadoEn?: string;
+    creadoPor?: string;
+    modificadoEn?: string;
+    modificadoPor?: string;
+}
+
+export interface CourierExpense {
+    id: string;
+    fecha: string;
+    domiciliario: string;
+    concepto: string;
+    valor: string;
+    responsable: string;
+    observaciones: string;
+    ordenId?: string;
+    autorizado: boolean;
+    creadoEn?: string;
+    creadoPor?: string;
 }
 
 export interface AuditEntry {
@@ -68,6 +91,7 @@ export interface Orden {
     prioridad: "Normal" | "Prioritaria" | "Urgente";
     valorTotal: string;
     pagos: PaymentRow[];
+    gastosDomiciliario?: CourierExpense[];
     estadoPago: "Pagado" | "Pago parcial" | "Pendiente por pago";
     movimiento: "Ingreso" | "Gasto";
     observaciones: string;
@@ -106,7 +130,9 @@ export interface Responsable {
     id: string;
     nombre: string;
     usuario: string;
+    password: string;
     correo: string;
     rol: "Representante Legal" | "Administrador" | "Asistente Administrativo" | "Domiciliario multiservicios" | "Responsable / Operador";
     estado: "Activo" | "Inactivo";
 }
+

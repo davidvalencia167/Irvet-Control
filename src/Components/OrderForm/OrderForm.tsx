@@ -1,15 +1,74 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FormOrden, PaymentRow, PetEntry } from "../../types";
+import type { CourierExpense, FormOrden, PaymentRow, PetEntry } from "../../types";
 import { AlertCircle, ChevronDown, ChevronUp, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
-import { CLIENTES, DOMICILIARIOS, EMPTY_FORM, IC, MEDIOS_PAGO, newPaymentRow, newPet, RESPONSABLES } from "../../constants";
+import { CLIENTES, DOMICILIARIOS, EMPTY_FORM, IC, MEDIOS_PAGO, newCourierExpense, newPaymentRow, newPet, RESPONSABLES } from "../../constants";
 import { BREEDS_BY_SPECIES, SPECIES } from "../../constants/breeds";
 import { calculatePetServicesTotal, type ServicioCatalogo } from "../../constants/services";
+import { calculatePaymentSummary } from "../../utils/payment";
 
 function Label({ text, required }: { text: string; required?: boolean }) {
   return <label className="block text-[11px] font-bold text-[#6B7A99] mb-1.5 uppercase tracking-wider">{text}{required && <span className="text-rose-500 ml-0.5">*</span>}</label>;
 }
 function FieldErr({ msg }: { msg?: string }) {
   return msg ? <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1"><AlertCircle size={10} />{msg}</p> : null;
+}
+
+function ClientSearch({
+  value,
+  options,
+  onChange,
+  hasError,
+}: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  hasError?: boolean;
+}) {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+
+  const filtered = options.filter((option) =>
+    option.toLowerCase().includes(query.trim().toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <input
+        value={query}
+        onChange={(event) => {
+          const nextQuery = event.target.value;
+          setQuery(nextQuery);
+          setOpen(true);
+          if (!nextQuery) onChange("");
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        placeholder="Buscar cliente / clínica..."
+        className={`${IC} ${hasError ? "border-rose-400" : ""}`}
+      />
+      {open && (
+        <div className="absolute z-30 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-[rgba(27,43,75,0.1)] bg-white py-1 shadow-lg">
+          {filtered.length > 0 ? filtered.map((option) => (
+            <button
+              type="button"
+              key={option}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onChange(option);
+                setQuery(option);
+                setOpen(false);
+              }}
+              className="block w-full px-3 py-2 text-left text-[12px] text-[#1B2B4B] hover:bg-[#F4F7FA]"
+            >
+              {option}
+            </button>
+          )) : (
+            <p className="px-3 py-2 text-[12px] text-[#6B7A99]">No se encontraron clientes.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const TABS = [
@@ -94,7 +153,7 @@ function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRem
           <div className="sm:col-span-2"><Label text="Buscar descripción"/><input value={search} onChange={e => setSearch(e.target.value)} disabled={!tipo} placeholder="Buscar examen..." className={`${IC} disabled:opacity-50`}/></div>
         </div>
         {tipo && <div className="max-h-36 overflow-y-auto space-y-2 rounded-xl bg-[#F8FAFC] p-3">{available.map(service => <label key={`${service.categoria}-${service.nombre}`} className="flex items-start gap-2 text-[12px] cursor-pointer"><input type="checkbox" checked={pet.servicios.some(s => s.descripcion === service.nombre)} onChange={() => toggleService(service)} className="mt-0.5 accent-[#2BB5C3]"/><span><span className="font-semibold">{service.nombre}</span> <span className="text-[#6B7A99]">({service.categoria}) · ${service.precio.toLocaleString("es-CO")}</span></span></label>)}</div>}
-        {pet.servicios.length > 0 && <div className="mt-3 space-y-1.5">{pet.servicios.map(s => <div key={s.id} className="flex items-start justify-between gap-2 text-[11px] bg-white border border-[rgba(27,43,75,0.06)] rounded-lg px-3 py-2"><span className="min-w-0 break-words"><b>{s.tipo}</b> · {s.descripcion}</span><span className="font-bold shrink-0">${s.precio.toLocaleString("es-CO")}</span></div>)}<div className="flex items-center justify-between border-t border-[rgba(27,43,75,0.1)] pt-2 text-[12px] font-extrabold text-[#1B2B4B]"><span>Total de esta mascota</span><span>${calculatePetServicesTotal(pet.servicios).toLocaleString("es-CO")}</span></div></div>}
+        {pet.servicios.length > 0 && <div className="mt-3 space-y-1.5">{pet.servicios.map(s => <div key={s.id} className="flex items-start justify-between gap-2 text-[11px] bg-white border border-[rgba(27,43,75,0.06)] rounded-lg px-3 py-2"><span className="min-w-0 wrap-break-word"><b>{s.tipo}</b> · {s.descripcion}</span><span className="font-bold shrink-0">${s.precio.toLocaleString("es-CO")}</span></div>)}<div className="flex items-center justify-between border-t border-[rgba(27,43,75,0.1)] pt-2 text-[12px] font-extrabold text-[#1B2B4B]"><span>Total de esta mascota</span><span>${calculatePetServicesTotal(pet.servicios).toLocaleString("es-CO")}</span></div></div>}
       </div>
 
     </div>}
@@ -105,13 +164,28 @@ function PaymentBlock({
   pagos,
   mascotas,
   valorTotal,
+  cliente,
+  fecha,
+  factura,
+  domiciliario,
+  responsable,
+  gastos,
   onAddRow,
   onUpdateRow,
   onRemoveRow,
+  onAddExpense,
+  onUpdateExpense,
+  onRemoveExpense,
 }: {
   pagos: PaymentRow[];
   mascotas: PetEntry[];
   valorTotal: string;
+  cliente: string;
+  fecha: string;
+  factura: string;
+  domiciliario: string;
+  responsable: string;
+  gastos: CourierExpense[];
   onAddRow: () => void;
   onUpdateRow: (
     id: string,
@@ -119,60 +193,51 @@ function PaymentBlock({
     val: string
   ) => void;
   onRemoveRow: (id: string) => void;
+  onAddExpense: () => void;
+  onUpdateExpense: (id: string, key: keyof CourierExpense, value: string | boolean) => void;
+  onRemoveExpense: (id: string) => void;
 }) {
-  const total = Number(valorTotal || 0);
-
-  const totalPagado = pagos
-    .filter((p) => (p.tipo ?? "Pago") === "Pago")
-    .reduce((sum, p) => sum + Number(p.valor || 0), 0);
-
-  const totalCubierto = pagos.reduce(
-    (sum, p) => sum + Number(p.valor || 0),
-    0
-  );
-
-  const pendiente = Math.max(0, total - totalCubierto);
-
-  const estado =
-    total > 0 && totalCubierto >= total
-      ? "Pagado"
-      : totalCubierto > 0
-        ? "Pago parcial"
-        : "Pendiente por pago";
+  const summary = calculatePaymentSummary(valorTotal, pagos, gastos);
+  const formatMoney = (value: number) => `$${value.toLocaleString("es-CO")}`;
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div className="bg-[#F8FAFC] rounded-xl p-3">
           <p className="text-[10px] font-bold text-[#6B7A99] uppercase">
             Valor de servicios
           </p>
           <p className="text-[18px] font-extrabold text-[#1B2B4B]">
-            ${total.toLocaleString("es-CO")}
+            {formatMoney(summary.total)}
           </p>
         </div>
 
         <div className="bg-[#F8FAFC] rounded-xl p-3">
           <p className="text-[10px] font-bold text-[#6B7A99] uppercase">
-            Total pagado
+            Total recibido
           </p>
           <p className="text-[18px] font-extrabold text-emerald-600">
-            ${totalPagado.toLocaleString("es-CO")}
+            {formatMoney(summary.received)}
           </p>
         </div>
 
         <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
           <p className="text-[10px] font-bold text-blue-700 uppercase">
-            Promoción / obsequio
+            Promociones
           </p>
           <p className="text-[18px] font-extrabold text-blue-700">
-            ${(totalCubierto - totalPagado).toLocaleString("es-CO")}
+            {formatMoney(summary.promotions)}
           </p>
+        </div>
+
+        <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
+          <p className="text-[10px] font-bold text-blue-700 uppercase">Obsequios</p>
+          <p className="text-[18px] font-extrabold text-blue-700">{formatMoney(summary.gifts)}</p>
         </div>
 
         <div
           className={`${
-            pendiente > 0
+            summary.pending > 0
               ? "bg-amber-50 border-amber-200"
               : "bg-emerald-50 border-emerald-200"
           } rounded-xl p-3 border`}
@@ -182,12 +247,16 @@ function PaymentBlock({
           </p>
           <p
             className={`text-[18px] font-extrabold ${
-              pendiente > 0 ? "text-amber-700" : "text-emerald-700"
+              summary.pending > 0 ? "text-amber-700" : "text-emerald-700"
             }`}
           >
-            ${pendiente.toLocaleString("es-CO")}
+            {formatMoney(summary.pending)}
           </p>
-          <span className="text-[10px] font-bold">{estado}</span>
+        </div>
+
+        <div className="bg-[#F8FAFC] rounded-xl p-3">
+          <p className="text-[10px] font-bold text-[#6B7A99] uppercase">Estado del pago</p>
+          <p className={`text-[13px] font-extrabold mt-2 ${summary.status === "Pagado" ? "text-emerald-700" : "text-amber-700"}`}>{summary.status}</p>
         </div>
       </div>
 
@@ -232,7 +301,10 @@ function PaymentBlock({
               : 0;
             const cubiertoMascota = mascota
               ? pagos
-                  .filter((payment) => payment.mascotaId === mascota.id)
+                  .filter((payment) =>
+                    payment.mascotaId === mascota.id &&
+                    ["Pago", "Promoción", "Obsequio"].includes(payment.tipo ?? "Pago")
+                  )
                   .reduce((sum, payment) => sum + Number(payment.valor || 0), 0)
               : 0;
             const saldoMascota = Math.max(
@@ -262,6 +334,8 @@ function PaymentBlock({
                     <option value="Pago">Pago recibido</option>
                     <option value="Promoción">Promoción</option>
                     <option value="Obsequio">Obsequio / Gratis</option>
+                    <option value="Gasto">Gasto de caja</option>
+                    <option value="Ajuste financiero">Ajuste financiero</option>
                   </select>
 
                   {tipo === "Pago" && (
@@ -367,6 +441,64 @@ function PaymentBlock({
           })}
         </div>
       </div>
+
+      <section className="rounded-2xl border border-[#2BB5C3]/20 bg-[#F8FAFC] p-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[12px] font-extrabold text-[#1B2B4B]">DOMICILIARIO ASIGNADO</p>
+            <p className="text-[10px] text-[#6B7A99]">Tomado automáticamente del tab General.</p>
+          </div>
+          <span className="text-[11px] font-bold text-[#2BB5C3]">{domiciliario || "Sin domiciliario asignado"}</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[11px]">
+          {[["Cliente", cliente || "—"], ["Fecha", fecha || "—"], ["Factura", factura], ["N° orden", mascotas[0]?.numeroOrden || "—"], ["Responsable", responsable || "—"]].map(([label, value]) => (
+            <div key={label} className="rounded-lg bg-white border border-slate-100 p-2">
+              <span className="block font-bold text-[#6B7A99] uppercase">{label}</span>
+              <span className="block mt-1 text-[#1B2B4B] truncate">{value}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[rgba(27,43,75,0.08)] p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[12px] font-extrabold text-[#1B2B4B]">RESUMEN DE RECAUDO POR DOMICILIARIO</p>
+            <p className="text-[10px] text-[#6B7A99]">Las promociones no incrementan el recaudo y los gastos autorizados solo afectan el neto.</p>
+          </div>
+          <span className="text-[12px] font-extrabold text-emerald-700">{formatMoney(summary.net)} neto</span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+          {[["Domicilios", domiciliario ? "1" : "0"], ...MEDIOS_PAGO.filter((medio) => medio !== "Transferencia").map((medio) => [medio, formatMoney(summary.byMethod[medio] ?? 0)]), ["Promociones", formatMoney(summary.promotions)], ["Gastos autorizados", formatMoney(summary.expenses)], ["Neto a entregar", formatMoney(summary.net)]].map(([label, value]) => (
+            <div key={label} className="rounded-lg bg-[#F8FAFC] p-2">
+              <span className="block text-[#6B7A99]">{label}</span>
+              <span className="block font-extrabold text-[#1B2B4B] mt-0.5">{value}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-rose-100 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[12px] font-extrabold text-rose-800">GASTOS DEL DOMICILIARIO</p>
+            <p className="text-[10px] text-rose-600">No alteran el valor de la factura ni el saldo del cliente.</p>
+          </div>
+          <button type="button" onClick={onAddExpense} className="text-[12px] font-bold text-rose-600">Agregar gasto</button>
+        </div>
+        {gastos.length === 0 && <p className="text-[11px] text-[#6B7A99]">No hay gastos registrados.</p>}
+        {gastos.map((expense) => (
+          <div key={expense.id} className="grid grid-cols-1 sm:grid-cols-[110px_1fr_130px_1fr_auto] gap-2 items-end">
+            <div><Label text="Fecha"/><input type="date" value={expense.fecha} onChange={(e) => onUpdateExpense(expense.id, "fecha", e.target.value)} className={IC}/></div>
+            <div><Label text="Concepto"/><input value={expense.concepto} onChange={(e) => onUpdateExpense(expense.id, "concepto", e.target.value)} placeholder="Ej: Café" className={IC}/></div>
+            <div><Label text="Valor"/><input type="number" min="0" value={expense.valor} onChange={(e) => onUpdateExpense(expense.id, "valor", e.target.value)} className={IC}/></div>
+            <div><Label text="Responsable"/><input value={expense.responsable} onChange={(e) => onUpdateExpense(expense.id, "responsable", e.target.value)} className={IC}/></div>
+            <button type="button" onClick={() => onRemoveExpense(expense.id)} className="h-9 w-9 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center"><Trash2 size={13}/></button>
+            <label className="sm:col-span-4 flex items-center gap-2 text-[11px] text-[#6B7A99]"><input type="checkbox" checked={expense.autorizado} onChange={(e) => onUpdateExpense(expense.id, "autorizado", e.target.checked)} /> Gasto autorizado</label>
+            <input value={expense.observaciones} onChange={(e) => onUpdateExpense(expense.id, "observaciones", e.target.value)} placeholder="Observación" className={`${IC} sm:col-span-5`}/>
+          </div>
+        ))}
+      </section>
     </div>
   );
 }
@@ -382,8 +514,7 @@ export default function OrderForm({ factura, editingId, initialForm, errors, cat
   useEffect(() => {
     const total = form.mascotas.reduce((sum,p) => sum + calculatePetServicesTotal(p.servicios), 0);
     const totalValue = total ? String(total) : "";
-    const totalCubierto = form.pagos.reduce((sum, p) => sum + Number(p.valor || 0), 0);
-    const status: FormOrden["estadoPago"] = total > 0 && totalCubierto >= total ? "Pagado" : totalCubierto > 0 ? "Pago parcial" : "Pendiente por pago";
+    const status = calculatePaymentSummary(total, form.pagos).status;
     if (form.valorTotal !== totalValue) upd("valorTotal", totalValue);
     if (form.estadoPago !== status) upd("estadoPago", status);
     const names = form.mascotas.flatMap(p => p.servicios.map(s => s.descripcion));
@@ -400,10 +531,13 @@ export default function OrderForm({ factura, editingId, initialForm, errors, cat
   const removePet = (id:string) => setForm(f => ({...f, mascotas:f.mascotas.filter(p => p.id !== id)}));
   const addPay = () => setForm((form) => ({
     ...form,
-    pagos: [...form.pagos, newPaymentRow()],
+    pagos: [...form.pagos, { ...newPaymentRow(), cliente: form.cliente, domiciliario: form.domiciliario, responsable: form.responsable }],
   }));
   const updatePay = (id:string,key:keyof PaymentRow,val:string) => setForm(f => ({...f,pagos:f.pagos.map(p=>p.id===id?{...p,[key]:val}:p)}));
   const removePay = (id:string) => setForm(f => ({...f,pagos:f.pagos.filter(p=>p.id!==id)}));
+  const addExpense = () => setForm(f => ({ ...f, gastosDomiciliario: [...(f.gastosDomiciliario ?? []), newCourierExpense(f.domiciliario, editingId ?? "")] }));
+  const updateExpense = (id: string, key: keyof CourierExpense, value: string | boolean) => setForm(f => ({ ...f, gastosDomiciliario: (f.gastosDomiciliario ?? []).map(expense => expense.id === id ? { ...expense, [key]: value } : expense) }));
+  const removeExpense = (id: string) => setForm(f => ({ ...f, gastosDomiciliario: (f.gastosDomiciliario ?? []).filter(expense => expense.id !== id) }));
   const clear = () => { setForm(EMPTY_FORM()); setActiveTab("general"); onClear(); };
 
   const tabHasError = (id:string) => id === "general" ? Boolean(errors.cliente) : id === "mascotas" ? Boolean(errors.mascotas || errors.servicios) : id === "pago" ? Boolean(errors.pagos) : false;
@@ -415,11 +549,11 @@ export default function OrderForm({ factura, editingId, initialForm, errors, cat
     <div className="px-6 py-4 flex items-center justify-between" style={{background:"linear-gradient(135deg,#1B2B4B 0%,#243861 100%)"}}><div><h2 className="text-white font-extrabold text-[15px] tracking-tight">{completing ? "Completar Orden de Servicio" : "Nueva Solicitud de Servicio"}</h2><p className="text-white/60 text-[11px] mt-0.5">{completing ? "La solicitud fue recibida. Complete mascotas, exámenes, pago y observaciones." : "Registre la información general ahora; complete el resto cuando llegue el domiciliario."}</p></div><div className="flex items-center gap-2">{completing && <span className="text-[10px] font-bold px-3 py-1 rounded-lg bg-amber-400/20 text-amber-200">{form.estadoOrden}</span>}<span className="text-[11px] font-bold text-[#2BB5C3] bg-[#2BB5C3]/15 px-3 py-1.5 rounded-lg font-mono">{factura}</span></div></div>
     <div className="flex border-b border-[rgba(27,43,75,0.08)] px-6 pt-3 gap-1 overflow-x-auto">{TABS.map(tab => <button type="button" key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-2 rounded-t-xl text-[13px] font-bold whitespace-nowrap border-b-2 ${activeTab===tab.id?"border-[#2BB5C3] text-[#2BB5C3] bg-[#2BB5C3]/5":"border-transparent text-[#6B7A99]"}`}><span>{tab.emoji}</span>{tab.label}{tab.id==="mascotas"&&form.mascotas.length>0&&<span className="text-[10px] font-bold bg-[#2BB5C3]/15 text-[#2BB5C3] px-1.5 py-0.5 rounded-full">{form.mascotas.length}</span>}{tabHasError(tab.id)&&<span className="w-1.5 h-1.5 rounded-full bg-rose-500"/>}</button>)}</div>
     <div className="p-6">
-      {activeTab === "general" && <div className="space-y-4"><div className="grid grid-cols-4 gap-4"><div><Label text="Fecha" required/><input type="date" value={form.fecha} readOnly className={`${IC} bg-[#F4F7FA]`}/></div><div><Label text="Hora de solicitud" required/><input type="time" value={form.horaSolicitud} readOnly className={`${IC} bg-[#F4F7FA]`}/></div><div><Label text="Responsable" required/><select value={form.responsable} onChange={e=>upd("responsable",e.target.value)} className={IC}>{RESPONSABLES.map(r=><option key={r}>{r}</option>)}</select></div><div><Label text="Prioridad"/><select value={form.prioridad} onChange={e=>upd("prioridad",e.target.value as FormOrden["prioridad"])} className={IC}><option>Normal</option><option>Prioritaria</option><option>Urgente</option></select></div></div><div><Label text="Cliente / Clínica" required/><select value={form.cliente} onChange={e=>upd("cliente",e.target.value)} className={`${IC} ${errors.cliente?"border-rose-400":""}`}><option value="">Seleccionar cliente / clínica...</option>{CLIENTES.map(c=><option key={c}>{c}</option>)}</select><FieldErr msg={errors.cliente}/></div><div><Label text="Domiciliario"/><select value={form.domiciliario} onChange={e=>upd("domiciliario",e.target.value)} className={IC}><option value="">Sin domicilio</option>{DOMICILIARIOS.map(d=><option key={d}>{d}</option>)}</select></div><div className="grid grid-cols-2 gap-4"><div><Label text="Hora de llamada"/><input type="time" value={form.horaLlamada} onChange={e=>upd("horaLlamada",e.target.value)} className={IC}/></div><div><Label text="Hora de llegada"/><input type="time" value={form.horaLlegada} onChange={e=>upd("horaLlegada",e.target.value)} className={IC}/></div></div><div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-[11px] text-amber-800"><b>Pendiente de recepción:</b> esta solicitud puede guardarse sin mascotas, servicios ni pago. Esos datos se completan cuando llegue el domiciliario.</div><Actions/></div>}
+      {activeTab === "general" && <div className="space-y-4"><div className="grid grid-cols-4 gap-4"><div><Label text="Fecha" required/><input type="date" value={form.fecha} readOnly className={`${IC} bg-[#F4F7FA]`}/></div><div><Label text="Hora de solicitud" required/><input type="time" value={form.horaSolicitud} readOnly className={`${IC} bg-[#F4F7FA]`}/></div><div><Label text="Responsable" required/><select value={form.responsable} onChange={e=>upd("responsable",e.target.value)} className={IC}>{RESPONSABLES.map(r=><option key={r}>{r}</option>)}</select></div><div><Label text="Prioridad"/><select value={form.prioridad} onChange={e=>upd("prioridad",e.target.value as FormOrden["prioridad"])} className={IC}><option>Normal</option><option>Prioritaria</option><option>Urgente</option></select></div></div><div><Label text="Cliente / Clínica" required/><ClientSearch key={form.cliente} value={form.cliente} options={CLIENTES} onChange={(cliente) => upd("cliente", cliente)} hasError={Boolean(errors.cliente)}/><FieldErr msg={errors.cliente}/></div><div><Label text="Domiciliario"/><select value={form.domiciliario} onChange={e=>upd("domiciliario",e.target.value)} className={IC}><option value="">Sin domicilio</option>{DOMICILIARIOS.map(d=><option key={d}>{d}</option>)}</select></div><div className="grid grid-cols-2 gap-4"><div><Label text="Hora de llamada"/><input type="time" value={form.horaLlamada} onChange={e=>upd("horaLlamada",e.target.value)} className={IC}/></div><div><Label text="Hora de llegada"/><input type="time" value={form.horaLlegada} onChange={e=>upd("horaLlegada",e.target.value)} className={IC}/></div></div><div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-[11px] text-amber-800"><b>Pendiente de recepción:</b> esta solicitud puede guardarse sin mascotas, servicios ni pago. Esos datos se completan cuando llegue el domiciliario.</div><Actions/></div>}
 
       {activeTab === "mascotas" && <div className="space-y-4">{!completing && <div className="rounded-xl bg-[#F8FAFC] p-4 text-[12px] text-[#6B7A99] border border-[rgba(27,43,75,0.06)]">Primero guarda la solicitud general. Cuando llegue el domiciliario, abre la solicitud desde el historial y pulsa <b>Completar</b> para registrar las mascotas y sus exámenes.</div>}{completing && <><div className="flex items-center justify-between"><div><p className="text-[13px] text-[#6B7A99]"><span className="font-bold text-[#1B2B4B]">{form.mascotas.length}</span> mascota{form.mascotas.length!==1?"s":""} en esta orden</p><p className="text-[10px] text-[#6B7A99]">Una orden puede contener varias mascotas y varios servicios por mascota.</p></div><button type="button" onClick={addPet} className="flex items-center gap-2 text-white text-[13px] font-bold px-4 py-2 rounded-xl" style={{background:"#2BB5C3"}}><Plus size={15}/>Agregar mascota</button></div>{form.mascotas.length===0&&<div className="border border-dashed rounded-xl p-8 text-center text-[12px] text-[#6B7A99]">Aún no se han registrado mascotas.</div>}{form.mascotas.map((pet,i)=><PetCard key={pet.id} pet={pet} index={i} catalogo={catalogo} medico={{ nombre: form.nombreMedico, matricula: form.matriculaMedico }} onChange={updatePet} onMedicoChange={patch => setForm(f => ({ ...f, ...patch }))} onRemove={removePet} canRemove={form.mascotas.length>1}/>)}</>}<Actions/></div>}
 
-      {activeTab === "pago" && <div className="space-y-4">{!completing ? <div className="rounded-xl bg-[#F8FAFC] p-4 text-[12px] text-[#6B7A99]">El pago se registra en la segunda etapa, cuando el domiciliario haya llegado y se conozcan los servicios reales.</div> : <PaymentBlock pagos={form.pagos} mascotas={form.mascotas} valorTotal={form.valorTotal} onAddRow={addPay} onUpdateRow={updatePay} onRemoveRow={removePay}/>}<Actions/></div>}
+      {activeTab === "pago" && <div className="space-y-4">{!completing ? <div className="rounded-xl bg-[#F8FAFC] p-4 text-[12px] text-[#6B7A99]">El pago se registra en la segunda etapa, cuando el domiciliario haya llegado y se conozcan los servicios reales.</div> : <PaymentBlock pagos={form.pagos} mascotas={form.mascotas} valorTotal={form.valorTotal} cliente={form.cliente} fecha={form.fecha} factura={factura} domiciliario={form.domiciliario} responsable={form.responsable} gastos={form.gastosDomiciliario ?? []} onAddRow={addPay} onUpdateRow={updatePay} onRemoveRow={removePay} onAddExpense={addExpense} onUpdateExpense={updateExpense} onRemoveExpense={removeExpense}/>}<Actions/></div>}
 
       {activeTab === "observaciones" && <div className="space-y-4"><div><Label text="Observaciones / Notas"/><textarea value={form.observaciones} onChange={e=>upd("observaciones",e.target.value)} placeholder="Notas adicionales, indicaciones especiales, condiciones de la muestra..." rows={5} className={`${IC} resize-none`}/></div>{completing && <div className="bg-[#F8FAFC] rounded-xl p-4 border border-[rgba(27,43,75,0.06)] space-y-2"><p className="text-[11px] font-bold text-[#1B2B4B] uppercase tracking-widest mb-3">Resumen de la orden</p>{[["Cliente",form.cliente||"—"],["Estado",form.estadoOrden],["Mascotas",String(form.mascotas.length)],["Servicios",String(form.mascotas.reduce((n,p)=>n+p.servicios.length,0))],["Domiciliario",form.domiciliario||"Sin domicilio"],["Valor total",form.valorTotal?`$${Number(form.valorTotal).toLocaleString("es-CO")}`:"—"],["Estado de pago",form.estadoPago]].map(([k,v])=><div key={k} className="flex justify-between text-[12px]"><span className="font-bold text-[#6B7A99]">{k}</span><span className="text-[#1B2B4B]">{v}</span></div>)}</div>}<Actions/></div>}
     </div>

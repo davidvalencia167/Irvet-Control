@@ -13,6 +13,8 @@ interface MainLayoutProps {
     sidebarItems?: SidebarItem[];
     activeModule?: string;
     onSelectModule?: (moduleKey: string) => void;
+    userName?: string;
+    onLogout?: () => void;
 }
 
 export default function MainLayout({
@@ -25,6 +27,8 @@ export default function MainLayout({
     sidebarItems,
     activeModule,
     onSelectModule,
+    userName,
+    onLogout,
 }: MainLayoutProps) {
     return(
         <div className="flex h-screen overflow-hidden" style={{fontFamily: "'Plus Jakarta Sans', sans-serif", background: "#EEF2F7"}}>
@@ -41,6 +45,8 @@ export default function MainLayout({
                     onNewOrder={onNewOrder}
                     title={title}
                     showNewOrderButton={showNewOrderButton}
+                    userName={userName}
+                    onLogout={onLogout}
                 />
                 <main className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
                     {children}

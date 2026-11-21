@@ -1,6 +1,7 @@
 import { AlertTriangle, ClipboardList, PawPrint, X } from "lucide-react";
 import React, { useState } from "react";
 import type { Orden } from "../../types";
+import { calculatePaymentSummary } from "../../utils/payment";
 
 
 function Row({label, value, accent}: {label: string; value: string; accent?: boolean}) {
@@ -27,11 +28,7 @@ function Section({emoji, title, children}: {emoji: string; title: string; childr
 }
 
 export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => void}) {
-    const totalPagado = orden.pagos
-      .filter((p) => (p.tipo ?? "Pago") === "Pago")
-      .reduce((a, p) => a + Number(p.valor || 0), 0);
-    const totalCubierto = orden.pagos.reduce((a, p) => a + Number(p.valor || 0), 0);
-    const pendiente = Math.max(0, Number(orden.valorTotal || 0)-totalCubierto);
+    const summary = calculatePaymentSummary(orden.valorTotal, orden.pagos, orden.gastosDomiciliario);
 
     return(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{background: "rgba(27, 43, 75, 0.55)"}}>
@@ -60,6 +57,7 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                           <Row label="Factura" value={orden.factura}/>
                           <Row label="Responsable" value={orden.responsable}/>
                           <Row label="Estado de la orden" value={orden.estadoOrden}/>
+                          <Row label="Domiciliario" value={orden.domiciliario || "Sin domiciliario asignado"}/>
                     </Section>
 
                     <Section emoji="🏥" title="Cliente">
@@ -130,8 +128,10 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                         ))}
                         <div className="mt-2 grid grid-cols-3 gap-2">
                           {[
-                            ["Total Pagado", `$${totalPagado.toLocaleString("es-CO")}`, "text-emerald-600"],
-                            ["Pendiente",    `$${pendiente.toLocaleString("es-CO")}`,   pendiente > 0 ? "text-amber-500" : "text-emerald-600"],
+                            ["Total recibido", `$${summary.received.toLocaleString("es-CO")}`, "text-emerald-600"],
+                            ["Promociones", `$${summary.promotions.toLocaleString("es-CO")}`, "text-blue-600"],
+                            ["Obsequios", `$${summary.gifts.toLocaleString("es-CO")}`, "text-blue-600"],
+                            ["Pendiente",    `$${summary.pending.toLocaleString("es-CO")}`,   summary.pending > 0 ? "text-amber-500" : "text-emerald-600"],
                             ["Estado",       orden.estadoPago,                           orden.estadoPago === "Pagado" ? "text-emerald-600" : "text-amber-500"],
                           ].map(([k, v, cls]) => (
                             <div key={k} className="bg-[#F4F7FA] rounded-xl p-2 text-center">
@@ -141,6 +141,15 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                           ))}
                         </div>
                     </Section>
+
+                    {(orden.gastosDomiciliario?.length ?? 0) > 0 && (
+                      <Section emoji="🧾" title="Gastos del domiciliario">
+                        {orden.gastosDomiciliario?.map((expense) => (
+                          <Row key={expense.id} label={`${expense.concepto || "Gasto"}${expense.autorizado ? "" : " (pendiente autorización)"}`} value={`$${Number(expense.valor || 0).toLocaleString("es-CO")}`} />
+                        ))}
+                        <Row label="Neto a entregar" value={`$${summary.net.toLocaleString("es-CO")}`} accent />
+                      </Section>
+                    )}
 
                     {orden.observaciones && (
                         <Section emoji="📝" title="Observaciones">

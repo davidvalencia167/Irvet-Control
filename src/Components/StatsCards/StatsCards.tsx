@@ -3,19 +3,24 @@ import {
   Truck, Calculator, ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
 import type { Orden } from "../../types";
+import type { DailyTask } from "../../types/tasks";
 
 interface StatsCardsProps {
   ordenes: Orden[];
+  tasks: DailyTask[];
 }
 
-export default function StatsCards({ ordenes }: StatsCardsProps) {
+export default function StatsCards({ ordenes, tasks }: StatsCardsProps) {
   const ingresos = ordenes
     .filter((o) => o.movimiento === "Ingreso")
     .reduce((a, o) => a + Number(o.valorTotal || 0), 0);
 
   const gastos = ordenes
     .filter((o) => o.movimiento === "Gasto")
-    .reduce((a, o) => a + Number(o.valorTotal || 0), 0);
+    .reduce((a, o) => a + Number(o.valorTotal || 0), 0) +
+    tasks
+      .filter((task) => task.movement === "Gasto")
+      .reduce((total, task) => total + Number(task.amount || 0), 0);
 
   // Las muestras coaguladas cuentan como domicilio pero no como examen
   const domicilios = new Set(

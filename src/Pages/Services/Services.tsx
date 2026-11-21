@@ -12,13 +12,19 @@ import {
 import ServiceHistory from "../../Components/ServiceHistory/ServiceHistory";
 import type { SidebarItem } from "../../Components/Slidebar/Slidebar";
 import type { ServicioCatalogo } from "../../constants/services";
+import type { DailyTask } from "../../types/tasks";
+import { api } from "../../api/resources";
+import { calculatePaymentSummary } from "../../utils/payment";
 
 interface ServicesProps {
   activeModule?: string;
   onSelectModule?: (moduleKey: string) => void;
+  userName?: string;
+  onLogout?: () => void;
   sidebarItems?: SidebarItem[];
   catalogo: Record<string, ServicioCatalogo[]>;
   ordenes: Orden[];
+  tasks: DailyTask[];
   onOrdenesChange: Dispatch<SetStateAction<Orden[]>>;
 }
 
@@ -33,6 +39,10 @@ function detectChanges(original: Orden, updated: FormOrden): string[] {
     changes.push("Servicios / exámenes");
   if (JSON.stringify(original.pagos) !== JSON.stringify(updated.pagos))
     changes.push("Método(s) de pago");
+  if (JSON.stringify(original.gastosDomiciliario ?? []) !== JSON.stringify(updated.gastosDomiciliario ?? []))
+    changes.push("Gastos del domiciliario");
+  if (original.domiciliario !== updated.domiciliario)
+    changes.push("Domiciliario");
   if (original.valorTotal !== updated.valorTotal)
     changes.push("Valor total de la orden");
   if (
@@ -71,6 +81,10 @@ function auditValues(
     ];
   if (campo === "Método(s) de pago")
     return [JSON.stringify(original.pagos), JSON.stringify(updated.pagos)];
+  if (campo === "Gastos del domiciliario")
+    return [JSON.stringify(original.gastosDomiciliario ?? []), JSON.stringify(updated.gastosDomiciliario ?? [])];
+  if (campo === "Domiciliario")
+    return [original.domiciliario, updated.domiciliario];
   if (campo === "Valor total de la orden")
     return [original.valorTotal, updated.valorTotal];
   if (campo === "Mascotas")
@@ -84,18 +98,18 @@ function auditValues(
 }
 
 function getCoveredAmount(form: FormOrden): number {
-  return form.pagos.reduce(
-    (sum, payment) => sum + Number(payment.valor || 0),
-    0,
-  );
+  return calculatePaymentSummary(form.valorTotal, form.pagos).covered;
 }
 
 export default function Services({
   activeModule,
   onSelectModule,
+  userName,
+  onLogout,
   sidebarItems,
   catalogo,
   ordenes,
+  tasks,
   onOrdenesChange,
 }: ServicesProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -142,35 +156,38 @@ export default function Services({
     return e;
   };
 
-  const commitEdit = (
+  const commitEdit = async (
     id: string,
     form: FormOrden,
     audit: AuditEntry[],
     finalize: boolean,
   ) => {
-    onOrdenesChange((prev) =>
-      prev.map((o) =>
-        o.id === id
-          ? {
-              ...form,
-              id,
-              factura: o.factura,
-              estadoOrden: finalize
-                ? "Completada"
-                : o.estadoOrden === "Pendiente de recepción"
-                  ? "En proceso"
-                  : o.estadoOrden,
-              auditoria: [...o.auditoria, ...audit],
-            }
-          : o,
-      ),
-    );
-    setEditingId(null);
-    setFormKey((k) => k + 1);
-    setAuditState(null);
+    const original = ordenes.find((order) => order.id === id);
+    if (!original) return;
+    const updatedOrder: Orden = {
+      ...form,
+      id,
+      factura: original.factura,
+      estadoOrden: finalize
+        ? "Completada"
+        : original.estadoOrden === "Pendiente de recepción"
+          ? "En proceso"
+          : original.estadoOrden,
+      auditoria: [...original.auditoria, ...audit],
+    };
+    try {
+      const result = await api.updateOrder(updatedOrder);
+      onOrdenesChange((prev) => prev.map((order) => order.id === id ? result.order : order));
+      setEditingId(null);
+      setFormKey((k) => k + 1);
+      setAuditState(null);
+    } catch (error) {
+      console.error("No se pudo guardar la modificación de la orden", error);
+      window.alert("No se pudo guardar la modificación. Verifique la conexión con el servidor.");
+    }
   };
 
-  const handleSave = (form: FormOrden, finalize = false) => {
+  const handleSave = async (form: FormOrden, finalize = false) => {
     const errs = validate(form, finalize);
     setErrors(errs);
     if (Object.keys(errs).length) return;
@@ -187,7 +204,7 @@ export default function Services({
         });
         return;
       }
-      commitEdit(editingId, form, [], finalize);
+      await commitEdit(editingId, form, [], finalize);
       return;
     }
     const invoice = currentFactura.current;
@@ -208,9 +225,15 @@ export default function Services({
       estadoOrden: "Pendiente de recepción",
       auditoria: [],
     };
-    onOrdenesChange((prev) => [newOrder, ...prev]);
-    setFormKey((k) => k + 1);
-    setEditingId(null);
+    try {
+      const result = await api.saveOrder(newOrder);
+      onOrdenesChange((prev) => [result.order, ...prev]);
+      setFormKey((k) => k + 1);
+      setEditingId(null);
+    } catch (error) {
+      console.error("No se pudo guardar la solicitud", error);
+      window.alert("No se pudo guardar la solicitud. Verifique la conexión con el servidor.");
+    }
   };
 
   const handleAuditConfirm = (motivo: string) => {
@@ -232,7 +255,7 @@ export default function Services({
         motivo,
       };
     });
-    commitEdit(
+    void commitEdit(
       auditState.originalOrden.id,
       auditState.pendingForm,
       entries,
@@ -252,9 +275,15 @@ export default function Services({
     setFormKey((k) => k + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const handleDelete = (id: string) => {
-    onOrdenesChange((prev) => prev.filter((o) => o.id !== id));
-    setDeleteId(null);
+  const handleDelete = async (id: string) => {
+    try {
+      await api.deleteOrder(id);
+      onOrdenesChange((prev) => prev.filter((o) => o.id !== id));
+      setDeleteId(null);
+    } catch (error) {
+      console.error("No se pudo eliminar la orden", error);
+      window.alert("No se pudo eliminar la orden. Verifique la conexión con el servidor.");
+    }
   };
   const deletedTarget = ordenes.find((o) => o.id === deleteId);
 
@@ -285,8 +314,10 @@ export default function Services({
         activeModule={activeModule}
         onSelectModule={onSelectModule}
         sidebarItems={sidebarItems}
+        userName={userName}
+        onLogout={onLogout}
       >
-        <StatsCards ordenes={ordenes} />
+        <StatsCards ordenes={ordenes} tasks={tasks} />
         <div ref={formRef}>
           <OrderForm
             key={formKey}
@@ -309,6 +340,7 @@ export default function Services({
         </div>
         <ServiceHistory
           ordenes={ordenes}
+          tasks={tasks}
           onView={setViewOrden}
           onEdit={handleEdit}
           onDeleteRequest={setDeleteId}

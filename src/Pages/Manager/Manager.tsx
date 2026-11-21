@@ -13,7 +13,7 @@ function Label({text, required}: {text: string; required?: boolean}) {
 }
 
 const EMPTY_RESPONSABLE = (): Omit<Responsable, "id"> => ({
-    nombre: "", usuario: "", correo: "", rol: "Responsable / Operador", estado: "Activo",
+    nombre: "", usuario: "", password: "", correo: "", rol: "Responsable / Operador", estado: "Activo",
 });
 
 interface Props {
@@ -36,7 +36,7 @@ export default function Manager({responsables, onSave, onToggle}: Props) {
 
     const openNew = () => {setForm(EMPTY_RESPONSABLE()); setEditingId(null); setErrors({}); setFormOpen(true);};
     const openEdit = (r: Responsable) => {
-        setForm({nombre: r.nombre, usuario: r.usuario, correo: r.correo, rol: r.rol, estado: r.estado});
+        setForm({nombre: r.nombre, usuario: r.usuario, password: r.password, correo: r.correo, rol: r.rol, estado: r.estado});
         setEditingId(r.id); setErrors({}); setFormOpen(true);
     };
     const closeForm = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY_RESPONSABLE()); setErrors({});};
@@ -45,6 +45,7 @@ export default function Manager({responsables, onSave, onToggle}: Props) {
         const e: Record<string, string> = {};
         if(!form.nombre.trim()) e.nombre = "Requerido";
         if(!form.usuario.trim()) e.usuario = "Requerido";
+        if(!form.password.trim()) e.password = "Requerida";
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -101,6 +102,7 @@ export default function Manager({responsables, onSave, onToggle}: Props) {
                             </div>
                             <div className="grid grid-cols-3 gap-4">
                                 <div><Label text="Correo Electrónico"/><input type="email" value={form.correo} onChange={(e) => upd("correo", e.target.value)} placeholder="correo@irvet.com" className={IC} /></div>
+                                <div><Label text="Contraseña" required/><input type="password" value={form.password} onChange={(e) => upd("password", e.target.value)} placeholder="Contraseña" className={`${IC} ${errors.password ? "border-rose-400" : ""}`}/>{errors.password && <p className="text-[11px] text-rose-500 mt-1">{errors.password}</p>}</div>
                                 <div>
                                     <Label text="Rol"/>
                                     <select value={form.rol} onChange={(e) => upd("rol", e.target.value as Responsable["rol"])} className={IC}>

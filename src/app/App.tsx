@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import MainLayout from "../Layout/MainLayout";
 import Clients from "../Pages/Clients/Clients";
 import Manager from "../Pages/Manager/Manager";
@@ -12,15 +12,34 @@ import {
   SERVICIOS_PAQUETES,
   SERVICIOS_POR_TIPO,
   type ServicioCatalogo,
-  calculatePetServicesTotal,
 } from "../constants/services";
-import { currentDate } from "../constants";
 
 import type { ComboCatalogo } from "../constants/services";
 import Pendings from "../Pages/Pendings/Pendings";
 import Combos from "../Pages/Combo/Combos";
+import Login from "../Pages/Login/Login";
+import { getCurrentUser, login, logout, type AuthUser } from "../api/auth";
+import { useInactivityLogout } from "../hooks/useInactivityLogout";
+import ForgotPassword from "../Pages/PasswordRecovery/ForgotPassword";
+import ResetPassword from "../Pages/PasswordRecovery/ResetPassword";
+import { api } from "../api/resources";
+import Tasks from "../Pages/Tasks/Tasks";
+import type {
+  DailyTask,
+  TaskCategory,
+  TaskForm,
+} from "../types/tasks";
 
-type ModuleKey = "dashboard" | "services" | "pending" | "clients" | "veterinary" | "manager" | "catalog" | "combos";
+type ModuleKey =
+  | "dashboard"
+  | "services"
+  | "pending"
+  | "tasks"
+  | "clients"
+  | "veterinary"
+  | "manager"
+  | "catalog"
+  | "combos";
 
 function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
   const cleaned: Record<string, ServicioCatalogo[]> = {};
@@ -51,55 +70,14 @@ function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
   return cleaned;
 }
 
+function catalogWithFallback(catalog: Record<string, ServicioCatalogo[]>) {
+  const cleaned = cleanServiceCatalog(catalog);
+  const hasServices = Object.values(cleaned).some((services) => services.length > 0);
+  return hasServices ? cleaned : SERVICIOS_POR_TIPO;
+}
+
 function loadOrdenes(): Orden[] {
-  const saved = localStorage.getItem("irvet_ordenes");
-  if (!saved) return [];
-
-  try {
-    const raw = JSON.parse(saved) as Partial<Orden>[];
-    return raw.map((orden) => {
-      const mascotas = (orden.mascotas ?? []).map((mascota) => ({
-        ...mascota,
-        servicios: mascota.servicios ?? [],
-      }));
-      const pagos = (orden.pagos ?? []).map((pago) => ({
-        id: pago.id ?? crypto.randomUUID(),
-        tipo: pago.tipo ?? "Pago",
-        medio: pago.medio ?? "",
-        valor: pago.valor ?? "",
-        fecha: pago.fecha ?? orden.fecha ?? currentDate(),
-        mascotaId: pago.mascotaId ?? "",
-        concepto: pago.concepto ?? "",
-      }));
-      const cubiertoPorMascota = new Map<string, number>();
-      const pagosSinExcedente = pagos.map((pago) => {
-        const valor = Math.max(0, Number(pago.valor || 0));
-        const mascota = mascotas.find((item) => item.id === pago.mascotaId);
-        const limite = mascota
-          ? calculatePetServicesTotal(mascota.servicios)
-          : Number(orden.valorTotal || 0);
-        const usado = cubiertoPorMascota.get(pago.mascotaId) ?? 0;
-        const disponible = Math.max(0, limite - usado);
-        const valorPermitido = Math.min(valor, disponible);
-        cubiertoPorMascota.set(pago.mascotaId, usado + valorPermitido);
-        return { ...pago, valor: String(valorPermitido) };
-      });
-
-      return ({
-      ...orden,
-      mascotas,
-      pagos: pagosSinExcedente,
-      cantidad: orden.cantidad ?? "0",
-      estadoPago: orden.estadoPago ?? "Pendiente por pago",
-      estadoOrden:
-        orden.estadoOrden ??
-        ((orden.mascotas ?? []).length ? "Completada" : "Pendiente de recepción"),
-      auditoria: orden.auditoria ?? [],
-      }) as Orden;
-    });
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 const initialClientes: Cliente[] = [
@@ -148,6 +126,7 @@ const initialResponsables: Responsable[] = [
     id: "1",
     nombre: "Elder",
     usuario: "ELDER",
+    password: "123456",
     correo: "elder@irvet.com",
     rol: "Representante Legal",
     estado: "Activo",
@@ -156,6 +135,7 @@ const initialResponsables: Responsable[] = [
     id: "2",
     nombre: "Carlos",
     usuario: "CARLOS",
+    password: "123456",
     correo: "carlos@irvet.com",
     rol: "Administrador",
     estado: "Activo",
@@ -164,6 +144,7 @@ const initialResponsables: Responsable[] = [
     id: "3",
     nombre: "Sebastian",
     usuario: "SEBASTIAN",
+    password: "123456",
     correo: "sebastian@irvet.com",
     rol: "Asistente Administrativo",
     estado: "Activo",
@@ -172,6 +153,7 @@ const initialResponsables: Responsable[] = [
     id: "4",
     nombre: "Brayan",
     usuario: "BRAYAN",
+    password: "123456",
     correo: "brayan@irvet.com",
     rol: "Domiciliario multiservicios",
     estado: "Activo",
@@ -180,133 +162,239 @@ const initialResponsables: Responsable[] = [
     id: "5",
     nombre: "Gissel",
     usuario: "GISSEL",
+    password: "123456",
     correo: "gissel@irvet.com",
     rol: "Domiciliario multiservicios",
     estado: "Activo",
   },
 ];
 
+function loadResponsables(): Responsable[] {
+  return [];
+}
+
+function normalizeLoginValue(value: string | undefined) {
+  return value?.trim().toLocaleUpperCase("es-CO") ?? "";
+}
+
+void cleanServiceCatalog;
+void loadOrdenes;
+void initialClientes;
+void initialMedicos;
+void initialResponsables;
+void loadResponsables;
+
 function App() {
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authScreen, setAuthScreen] = useState<"login" | "forgot" | "reset">("login");
   const [activeModule, setActiveModule] = useState<ModuleKey>("dashboard");
-  const [ordenes, setOrdenes] = useState<Orden[]>(loadOrdenes);
-  const [clientes, setClientes] = useState<Cliente[]>(initialClientes);
-  const [medicos, setMedicos] = useState<Medico[]>(initialMedicos);
-  const [responsables, setResponsables] = useState<Responsable[]>(initialResponsables);
-  const [catalogo, setCatalogo] = useState<Record<string, ServicioCatalogo[]>>(() => {
-    const saved = localStorage.getItem("irvet_catalogo_servicios");
-    if (!saved) return SERVICIOS_POR_TIPO;
+  const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [medicos, setMedicos] = useState<Medico[]>([]);
+  const [responsables, setResponsables] = useState<Responsable[]>([]);
+  const [catalogo, setCatalogo] = useState<Record<string, ServicioCatalogo[]>>(SERVICIOS_POR_TIPO);
+  const [combos, setCombos] = useState<ComboCatalogo[]>([]);
+  const [tasks, setTasks] = useState<DailyTask[]>([]);
+  const [taskCategories, setTaskCategories] = useState<TaskCategory[]>([]);
 
-    try {
-      return cleanServiceCatalog(JSON.parse(saved) as Record<string, ServicioCatalogo[]>);
-    } catch {
-      return SERVICIOS_POR_TIPO;
-    }
-  });
+  useEffect(() => {
+  getCurrentUser()
+    .then((result) => {
+      setAuthUser(result?.user ?? null);
+    })
+    .catch(() => {
+      setAuthUser(null);
+    })
+    .finally(() => {
+      setAuthLoading(false);
+    });
+}, []);
 
-  const [combos, setCombos] = useState<ComboCatalogo[]>(() => {
-      const saved = localStorage.getItem("irvet_combos");
+  useEffect(() => {
+    if (!authUser) return;
 
-      if(!saved) return[];
-
+    const loadData = async () => {
       try {
-        return JSON.parse(saved) as ComboCatalogo[];
-      } catch {
-          return[];
+        const [
+          clients,
+          veterinarians,
+          catalog,
+          combosResult,
+          orders,
+          users,
+          tasksResult,
+        ] = await Promise.all([
+          api.clients(),
+          api.veterinarians(),
+          api.catalog(),
+          api.combos(),
+          api.orders(),
+          api.users(),
+          api.tasks(),
+        ]);
+
+        setClientes(clients.clients);
+        setMedicos(veterinarians.veterinarians);
+        setCatalogo(catalogWithFallback(catalog.catalog));
+        setCombos(combosResult.combos);
+        setOrdenes(orders.orders);
+        setResponsables(users.users);
+        setTasks(tasksResult.tasks);
+        setTaskCategories(tasksResult.categories);
+      } catch (error) {
+        console.error("No se pudieron cargar los datos", error);
       }
-  });
+    };
 
-  useEffect(() => {
-    localStorage.setItem("irvet_catalogo_servicios", JSON.stringify(catalogo));
-  }, [catalogo]);
+    void loadData();
+  }, [authUser]);
 
-  useEffect(() => {
-    localStorage.setItem("irvet_ordenes", JSON.stringify(ordenes));
-  }, [ordenes]);
+  const canViewDashboard = authUser
+    ? ["ELDER", "CARLOS"].includes(normalizeLoginValue(authUser.usuario))
+    : false;
 
-  useEffect(() => {
-    localStorage.setItem("irvet_combos", JSON.stringify(combos));
-  }, [combos]);
-
-  const handleAddCombo = (combo: ComboCatalogo) => {
-    setCombos((current) => [combo, ...current]);
-  };
-
-  const handleDeleteCombo = (id: string) => {
-  setCombos((current) => current.filter((combo) => combo.id !== id));
+  const handleAuthLogin = async (
+  usuario: string,
+  password: string,
+) => {
+  const result = await login(usuario, password);
+  setAuthUser(result.user);
 };
 
-  const sidebarItems = useMemo(
-    () => [
+const handleAuthLogout = useCallback(async () => {
+  await logout();
+  setAuthUser(null);
+  setActiveModule("services");
+}, []);
+
+useInactivityLogout(
+  authUser !== null,
+  handleAuthLogout,
+  30 * 60 * 1000,
+);
+
+  const sidebarItems = useMemo(() => {
+    const items = [
       { key: "dashboard", label: "Dashboard" },
       { key: "services", label: "Registro de Servicios" },
       { key: "pending", label: "Pendientes" },
-      { key: "combos", label: "Combos"},
+      { key: "tasks", label: "Tareas diarias" },
+      { key: "combos", label: "Combos" },
       { key: "clients", label: "Clientes" },
       { key: "veterinary", label: "Médicos Veterinarios" },
       { key: "manager", label: "Responsables" },
       { key: "catalog", label: "Catálogo de Servicios" },
-    ],
-    []
+    ];
+
+    return canViewDashboard
+      ? items
+      : items.filter((item) => item.key !== "dashboard");
+  }, [canViewDashboard]);
+
+if (authLoading) {
+  return (
+    <main className="min-h-screen flex items-center justify-center">
+      <p className="text-[#1B2B4B] font-semibold">
+        Cargando sesión...
+      </p>
+    </main>
   );
+}
 
-  const handleAddService = (service: ServicioCatalogo) => {
-    setCatalogo((current) => ({
-      ...current,
-      [service.categoria]: [...(current[service.categoria] ?? []), service],
-    }));
-  };
-
-  const handleDeleteService = (categoria: string, nombre: string) => {
-    setCatalogo((current) => ({
-      ...current,
-      [categoria]: current[categoria].filter((service) => service.nombre !== nombre),
-    }));
-  };
-
-  const handleSaveCliente = (data: Omit<Cliente, "id">, id?: string) => {
-    setClientes((prev) => {
-      if (id) {
-        return prev.map((cliente) => (cliente.id === id ? { ...cliente, ...data } : cliente));
-      }
-
-      return [{ ...data, id: crypto.randomUUID() }, ...prev];
-    });
-  };
-
-  const handleToggleCliente = (id: string) => {
-    setClientes((prev) =>
-      prev.map((cliente) =>
-        cliente.id === id
-          ? {
-              ...cliente,
-              estado: cliente.estado === "Activo" ? "Inactivo" : "Activo",
-            }
-          : cliente
-      )
+  if (!authUser) {
+    const resetToken = new URLSearchParams(window.location.search).get("token");
+    if (resetToken) {
+      return <ResetPassword token={resetToken} onBack={() => setAuthScreen("login")} />;
+    }
+    if (authScreen === "forgot") {
+      return <ForgotPassword onBack={() => setAuthScreen("login")} />;
+    }
+    return (
+      <Login
+        onLogin={handleAuthLogin}
+        onForgotPassword={() => setAuthScreen("forgot")}
+      />
     );
+  }
+
+  const handleAddCombo = async (combo: ComboCatalogo) => {
+    await api.addCombo(combo);
+    const result = await api.combos();
+    setCombos(result.combos);
   };
 
-  const handleSaveMedico = (data: Omit<Medico, "id">, id?: string) => {
-    setMedicos((prev) => {
-      if (id) {
-        return prev.map((medico) => (medico.id === id ? { ...medico, ...data } : medico));
-      }
-
-      return [{ ...data, id: crypto.randomUUID() }, ...prev];
-    });
+  const handleDeleteCombo = async (id: string) => {
+    await api.deleteCombo(id);
+    const result = await api.combos();
+    setCombos(result.combos);
   };
 
-  const handleToggleMedico = (id: string) => {
-    setMedicos((prev) =>
-      prev.map((medico) =>
-        medico.id === id
-          ? {
-              ...medico,
-              estado: medico.estado === "Activo" ? "Inactivo" : "Activo",
-            }
-          : medico
-      )
-    );
+  const handleSaveTask = async (data: TaskForm, id?: string) => {
+    await api.saveTask(data, id);
+
+    const result = await api.tasks();
+
+    setTasks(result.tasks);
+    setTaskCategories(result.categories);
+  };
+
+  const handleDeleteTask = async (id: string) => {
+    await api.deleteTask(id);
+
+    const result = await api.tasks();
+
+    setTasks(result.tasks);
+    setTaskCategories(result.categories);
+  };
+
+  const handleCreateTaskCategory = async (name: string) => {
+    await api.createTaskCategory(name);
+
+    const result = await api.tasks();
+
+    setTasks(result.tasks);
+    setTaskCategories(result.categories);
+  };
+
+  const handleAddService = async (service: ServicioCatalogo) => {
+    await api.addService(service);
+    const result = await api.catalog();
+    setCatalogo(catalogWithFallback(result.catalog));
+  };
+
+  const handleDeleteService = async (categoria: string, nombre: string) => {
+    await api.deleteService(categoria, nombre);
+    const result = await api.catalog();
+    setCatalogo(catalogWithFallback(result.catalog));
+  };
+
+  const handleSaveCliente = async (data: Omit<Cliente, "id">, id?: string) => {
+    await api.saveClient(data, id);
+    const result = await api.clients();
+    setClientes(result.clients);
+  };
+
+  const handleToggleCliente = async (id: string) => {
+    const cliente = clientes.find((item) => item.id === id);
+    if (!cliente) return;
+    await api.toggleClient(id, cliente.estado === "Activo" ? "Inactivo" : "Activo");
+    const result = await api.clients();
+    setClientes(result.clients);
+  };
+
+  const handleSaveMedico = async (data: Omit<Medico, "id">, id?: string) => {
+    await api.saveVeterinarian(data, id);
+    const result = await api.veterinarians();
+    setMedicos(result.veterinarians);
+  };
+
+  const handleToggleMedico = async (id: string) => {
+    const medico = medicos.find((item) => item.id === id);
+    if (!medico) return;
+    await api.toggleVeterinarian(id, medico.estado === "Activo" ? "Inactivo" : "Activo");
+    const result = await api.veterinarians();
+    setMedicos(result.veterinarians);
   };
 
   const handleSaveResponsable = (data: Omit<Responsable, "id">, id?: string) => {
@@ -332,15 +420,24 @@ function App() {
     );
   };
 
-  if (activeModule === "dashboard") {
+  const visibleModule = !canViewDashboard && activeModule === "dashboard"
+    ? "services"
+    : activeModule;
+  const visibleSidebarItems = canViewDashboard
+    ? sidebarItems
+    : sidebarItems.filter((item) => item.key !== "dashboard");
+
+  if (visibleModule === "dashboard") {
     return (
       <MainLayout
         ordenes={ordenes}
         title="Dashboard"
         showNewOrderButton={false}
-        activeModule={activeModule}
+        activeModule={visibleModule}
         onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
-        sidebarItems={sidebarItems}
+        sidebarItems={visibleSidebarItems}
+        userName={authUser.nombre}
+        onLogout={handleAuthLogout}
       >
         <DashboardAdmin
           ordenes={ordenes}
@@ -349,35 +446,40 @@ function App() {
           responsables={responsables}
           catalogo={catalogo}
           combos={combos}
+          tasks={tasks}
         />
       </MainLayout>
     );
   }
 
-  if (activeModule === "pending") {
+  if (visibleModule === "pending") {
     return (
       <MainLayout
         ordenes={ordenes}
         title="Pendientes"
         showNewOrderButton={false}
-        activeModule={activeModule}
+        activeModule={visibleModule}
         onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
-        sidebarItems={sidebarItems}
+        sidebarItems={visibleSidebarItems}
+        userName={authUser.nombre}
+        onLogout={handleAuthLogout}
       >
         <Pendings ordenes={ordenes} onOrdenesChange={setOrdenes} />
       </MainLayout>
     );
   }
 
-  if (activeModule === "combos") {
+  if (visibleModule === "combos") {
       return(
         <MainLayout
           ordenes={ordenes}
           title="Combos"
           showNewOrderButton={false}
-          activeModule={activeModule}
+          activeModule={visibleModule}
           onSelectModule={(modulekey) => setActiveModule(modulekey as ModuleKey)}
-          sidebarItems={sidebarItems}
+          sidebarItems={visibleSidebarItems}
+          userName={authUser.nombre}
+          onLogout={handleAuthLogout}
           >
             <Combos
                 combos={combos}
@@ -389,30 +491,34 @@ function App() {
       );
   }
 
-  if (activeModule === "clients") {
+  if (visibleModule === "clients") {
     return (
       <MainLayout
         ordenes={[]}
         title="Clientes"
         showNewOrderButton={false}
-        activeModule={activeModule}
+        activeModule={visibleModule}
         onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
-        sidebarItems={sidebarItems}
+        sidebarItems={visibleSidebarItems}
+        userName={authUser.nombre}
+        onLogout={handleAuthLogout}
       >
         <Clients clientes={clientes} onSave={handleSaveCliente} onToggle={handleToggleCliente} />
       </MainLayout>
     );
   }
 
-  if (activeModule === "catalog") {
+  if (visibleModule === "catalog") {
     return (
       <MainLayout
         ordenes={[]}
         title="Catálogo de Servicios"
         showNewOrderButton={false}
-        activeModule={activeModule}
+        activeModule={visibleModule}
         onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
-        sidebarItems={sidebarItems}
+        sidebarItems={visibleSidebarItems}
+        userName={authUser.nombre}
+        onLogout={handleAuthLogout}
       >
         <ServiceCatalog
           catalogo={catalogo}
@@ -423,30 +529,34 @@ function App() {
     );
   }
 
-  if (activeModule === "veterinary") {
+  if (visibleModule === "veterinary") {
     return (
       <MainLayout
         ordenes={[]}
         title="Médicos Veterinarios"
         showNewOrderButton={false}
-        activeModule={activeModule}
+        activeModule={visibleModule}
         onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
-        sidebarItems={sidebarItems}
+        sidebarItems={visibleSidebarItems}
+        userName={authUser.nombre}
+        onLogout={handleAuthLogout}
       >
         <Veterinary medicos={medicos} onSave={handleSaveMedico} onToggle={handleToggleMedico} />
       </MainLayout>
     );
   }
 
-  if (activeModule === "manager") {
+  if (visibleModule === "manager") {
     return (
       <MainLayout
         ordenes={[]}
         title="Responsables"
         showNewOrderButton={false}
-        activeModule={activeModule}
+        activeModule={visibleModule}
         onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
-        sidebarItems={sidebarItems}
+        sidebarItems={visibleSidebarItems}
+        userName={authUser.nombre}
+        onLogout={handleAuthLogout}
       >
         <Manager
           responsables={responsables}
@@ -457,14 +567,44 @@ function App() {
     );
   }
 
+  if (visibleModule === "tasks") {
+    return (
+      <MainLayout
+        ordenes={ordenes}
+        title="Tareas diarias"
+        showNewOrderButton={false}
+        activeModule={visibleModule}
+        onSelectModule={(moduleKey) =>
+          setActiveModule(moduleKey as ModuleKey)
+        }
+        sidebarItems={visibleSidebarItems}
+        userName={authUser.nombre}
+        onLogout={handleAuthLogout}
+      >
+        <Tasks
+          tasks={tasks}
+          categories={taskCategories}
+          responsables={responsables}
+          currentUser={authUser.nombre}
+          onSave={handleSaveTask}
+          onDelete={handleDeleteTask}
+          onCreateCategory={handleCreateTaskCategory}
+        />
+      </MainLayout>
+    );
+  }
+
   return (
     <Services
-      activeModule={activeModule}
+      activeModule={visibleModule}
       onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
-      sidebarItems={sidebarItems}
+      sidebarItems={visibleSidebarItems}
       catalogo={catalogo}
       ordenes={ordenes}
+      tasks={tasks}
       onOrdenesChange={setOrdenes}
+      userName={authUser.nombre}
+      onLogout={handleAuthLogout}
     />
   );
 }

@@ -1,10 +1,14 @@
 import { useState } from "react";
 import type { Orden } from "../../types";
+import type { DailyTask } from "../../types/tasks";
 import { ChevronLeft, ChevronRight, Eye, FileText, Filter, Pencil, Search, Trash2 } from "lucide-react";
+import { calculatePaymentSummary, summarizeByCourier } from "../../utils/payment";
+import { DOMICILIARIOS } from "../../constants";
 
 
 interface ServiceHistoryProps {
     ordenes: Orden[];
+    tasks: DailyTask[];
     onView: (o: Orden) => void;
     onEdit: (o: Orden) => void;
     onDeleteRequest: (id: string) => void;
@@ -26,9 +30,10 @@ const TIPO_COLOR: Record<string, string> = {
   "Consulta Médica":"bg-teal-50 text-teal-700",
 };
 
-export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest,}: ServiceHistoryProps) {
+export default function ServiceHistory({ordenes, tasks, onView, onEdit, onDeleteRequest,}: ServiceHistoryProps) {
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState("todos");
+    const [courierFilter, setCourierFilter] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     
@@ -40,30 +45,62 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
         o.factura.toLowerCase().includes(q) ||
         o.cliente.toLowerCase().includes(q) ||
         o.responsable.toLowerCase().includes(q) ||
+        o.domiciliario.toLowerCase().includes(q) ||
         o.fecha.includes(q) ||
         o.tipoServicio.toLowerCase().includes(q);
+        const matchCourier = !courierFilter
+          ? true
+          : courierFilter === "__sin_asignar__"
+            ? !o.domiciliario
+            : o.domiciliario === courierFilter;
 
-        if(filter === "hoy") return matchQ && o.fecha === today;
+        if(filter === "hoy") return matchQ && matchCourier && o.fecha === today;
         if (filter === "semana") {
             const d = new Date(o.fecha);
             const now = new Date();
             const diff = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
-            return matchQ && diff >= 0 && diff < 7;
+            return matchQ && matchCourier && diff >= 0 && diff < 7;
         }
-        if(filter === "prioritaria") return matchQ && (o.prioridad === "Prioritaria" || o.prioridad === "Urgente");
-        if(filter === "pagado") return matchQ && o.estadoPago === "Pagado";
-        if(filter === "pendiente") return matchQ && o.estadoPago !== "Pagado";
-        if(filter === "recepcion") return matchQ && o.estadoOrden === "Pendiente de recepción";
-        return matchQ;
+        if(filter === "prioritaria") return matchQ && matchCourier && (o.prioridad === "Prioritaria" || o.prioridad === "Urgente");
+        if(filter === "pagado") return matchQ && matchCourier && o.estadoPago === "Pagado";
+        if(filter === "pendiente") return matchQ && matchCourier && o.estadoPago !== "Pagado";
+        if(filter === "recepcion") return matchQ && matchCourier && o.estadoOrden === "Pendiente de recepción";
+        return matchQ && matchCourier;
     });
     
     const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
     const safePage = Math.min(currentPage, totalPages);
     const paginated = filtered.slice((safePage -1 ) * rowsPerPage, safePage * rowsPerPage);
+    const courierSummary = summarizeByCourier(filtered);
 
     const changeFilter = (f: string) => {setFilter(f); setCurrentPage(1);};
     
     return(
+        <div className="space-y-5">
+        {courierSummary.length > 0 && (
+            <div className="rounded-2xl border border-[#2BB5C3]/20 bg-white p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                    <div>
+                        <h2 className="text-[15px] font-extrabold text-[#1B2B4B]">Consolidado de recaudo por domiciliario</h2>
+                        <p className="text-[11px] text-[#6B7A99]">Acumulado de las órdenes filtradas; cada pago se cuenta una sola vez.</p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#6B7A99]">{courierSummary.length} domiciliarios</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {courierSummary.map((item) => (
+                        <div key={item.domiciliario} className="rounded-xl bg-[#F8FAFC] p-3">
+                            <p className="text-[12px] font-extrabold text-[#1B2B4B]">{item.domiciliario}</p>
+                            <div className="grid grid-cols-2 gap-2 mt-2 text-[11px]">
+                                <span className="text-[#6B7A99]">Servicios <b className="block text-[#1B2B4B]">${item.services.toLocaleString("es-CO")}</b></span>
+                                <span className="text-[#6B7A99]">Recaudado <b className="block text-emerald-700">${item.received.toLocaleString("es-CO")}</b></span>
+                                <span className="text-[#6B7A99]">Gastos <b className="block text-rose-600">${item.expenses.toLocaleString("es-CO")}</b></span>
+                                <span className="text-[#6B7A99]">Neto <b className="block text-[#1B2B4B]">${item.net.toLocaleString("es-CO")}</b></span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
         <div className="bg-white rounded-2xl border border-[rgba(27, 43, 75, 0.06)] overflow-hidden" style={{boxShadow: "0 1px 6px rgba(27, 43, 75, 0.06)"}}>
             <div className="px-6 py-4 border-b border-[rgba(27, 43, 75, 0.06)]">
                 <div className="flex items-center justify-between mb-3">
@@ -72,7 +109,6 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                     </h2>
                     <span className="text-[11px] font-bold text-[#6B7AA9]">{filtered.length} registros</span>
                 </div>
-
                 <div className="flex items-center gap-3 flex-wrap">
                     <div className="relative flex-1 min-w-55">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
@@ -80,6 +116,16 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                     </div>
 
                     <div className="flex gap-1.5 flex-wrap">
+                        <select
+                            value={courierFilter}
+                            onChange={(e) => { setCourierFilter(e.target.value); setCurrentPage(1); }}
+                            className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#F4F7FA] text-[#6B7A99] border-0 focus:outline-none focus:ring-2 focus:ring-[#2BB5C3]/25"
+                            aria-label="Filtrar por domiciliario"
+                        >
+                            <option value="">Todos los domiciliarios</option>
+                            {DOMICILIARIOS.map((domiciliario) => <option key={domiciliario} value={domiciliario}>{domiciliario}</option>)}
+                            <option value="__sin_asignar__">Sin domiciliario asignado</option>
+                        </select>
                         {[
                             {id: "todos", label: "Todos"},
                             {id: "hoy", label: "Hoy"},
@@ -122,7 +168,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                 <tr style={{background: "#F8FAFC"}}>
                                     {[
                                         "N° Orden", "Factura", "Fecha", "Cliente", "Tipo de Servicio",
-                                        "Cant.", "Mascotas", "Responsable", "Estado Orden", "Estado Pago", "Valor Total", "Acciones", 
+                                        "Cant.", "Mascotas", "Responsable", "Domiciliario", "Estado Orden", "Estado Pago", "Valor Total", "Recaudado", "Saldo", "Acciones", 
                                     ].map((h) => (
                                         <th key={h} className="text-left px-4 py-3 text-[11px] font-bold text-[#6B7A99] uppercase tracking-wider whitespace-nowrap border-b border-[rgba(27, 43, 75, 0.05)]">
                                             {h}
@@ -163,6 +209,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-[12px] text-[#6B7A99] font-medium">{o.responsable}</td>
+                                            <td className="px-4 py-3 text-[12px] text-[#6B7A99]">{o.domiciliario || "—"}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${o.estadoOrden === "Completada" ? "bg-emerald-50 text-emerald-700" : o.estadoOrden === "En proceso" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"}`}>{o.estadoOrden}</span>
                                             </td>
@@ -174,6 +221,8 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                                     {o.movimiento === "Ingreso" ? "+" : "-"} ${Number(o.valorTotal || 0).toLocaleString("es-CO")}
                                                 </span>
                                             </td>
+                                            <td className="px-4 py-3 text-[12px] font-bold text-emerald-600">${calculatePaymentSummary(o.valorTotal, o.pagos, o.gastosDomiciliario).received.toLocaleString("es-CO")}</td>
+                                            <td className="px-4 py-3 text-[12px] font-bold text-amber-700">${calculatePaymentSummary(o.valorTotal, o.pagos, o.gastosDomiciliario).pending.toLocaleString("es-CO")}</td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-1">
                                                     <button onClick={() => onView(o)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors" title="Ver">
@@ -193,7 +242,7 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                                     {
                                         paginated.length === 0 && (
                                             <tr>
-                                                <td colSpan={12} className="px-4 py-10 text-center text-[#6B7A99] text-[13px]">
+                                                <td colSpan={15} className="px-4 py-10 text-center text-[#6B7A99] text-[13px]">
                                                     No se encontraron registros con los filtros aplicados.
                                                 </td>
                                             </tr>
@@ -229,6 +278,37 @@ export default function ServiceHistory({ordenes, onView, onEdit, onDeleteRequest
                             </div>
                         </div>
                     )}
+        </div>
+        {tasks.some((task) => task.movement === "Gasto" && Number(task.amount) > 0) && (
+            <div className="overflow-hidden rounded-2xl border border-rose-100 bg-white shadow-sm">
+                <div className="border-b border-rose-100 bg-rose-50 px-6 py-4">
+                    <h2 className="text-[15px] font-extrabold text-rose-800">Gastos de tareas diarias</h2>
+                    <p className="mt-1 text-[11px] text-rose-700">Estos valores se tienen en cuenta para el cierre de caja de cada responsable.</p>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-[#F8FAFC]">
+                            <tr>
+                                {["Fecha", "Tarea", "Responsable", "Estado", "Valor"].map((heading) => (
+                                    <th key={heading} className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">{heading}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tasks.filter((task) => task.movement === "Gasto" && Number(task.amount) > 0).map((task) => (
+                                <tr key={task.id} className="border-t border-slate-100">
+                                    <td className="px-6 py-3 text-[12px] text-[#6B7A99]">{task.completedDate || task.dueDate || "—"}</td>
+                                    <td className="px-6 py-3 text-[12px] font-semibold text-[#1B2B4B]">{task.description}</td>
+                                    <td className="px-6 py-3 text-[12px] text-[#6B7A99]">{task.responsible || "Sin asignar"}</td>
+                                    <td className="px-6 py-3 text-[12px] text-[#6B7A99]">{task.status}</td>
+                                    <td className="px-6 py-3 text-[13px] font-extrabold text-rose-600">- ${Number(task.amount).toLocaleString("es-CO")}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
         </div>
     );
 }

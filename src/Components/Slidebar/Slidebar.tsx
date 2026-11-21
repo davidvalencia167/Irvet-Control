@@ -99,10 +99,10 @@ export default function Sidebar({
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
             style={{ background: "#2BB5C3" }}
           >
-            GA
+            CA
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white text-[12px] font-semibold truncate">Gissel Admin</p>
+            <p className="text-white text-[12px] font-semibold truncate">Carlos</p>
             <p className="text-white/35 text-[10px] truncate">Administrador</p>
           </div>
           <ChevronDown size={13} className="text-white/30 shrink-0" />

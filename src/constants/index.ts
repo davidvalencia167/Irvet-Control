@@ -1,4 +1,4 @@
-import type { PetEntry, PaymentRow } from "../types";
+import type { CourierExpense, PetEntry, PaymentRow } from "../types";
 
 export const IC =
   "w-full px-3 py-2 text-sm bg-[#F4F7FA] border border-[rgba(27,43,75,0.1)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2BB5C3]/25 focus:border-[#2BB5C3] transition-colors placeholder:text-gray-400 text-[#1B2B4B]";
@@ -62,6 +62,18 @@ export const newPaymentRow = (): PaymentRow => ({
   concepto: "",
 });
 
+export const newCourierExpense = (domiciliario = "", ordenId = ""): CourierExpense => ({
+  id: crypto.randomUUID(),
+  fecha: currentDate(),
+  domiciliario,
+  concepto: "",
+  valor: "",
+  responsable: "",
+  observaciones: "",
+  ordenId,
+  autorizado: false,
+});
+
 export const EMPTY_FORM = () => ({
   fecha: currentDate(),
   horaSolicitud: currentTime(),
@@ -71,7 +83,7 @@ export const EMPTY_FORM = () => ({
   mascotas: [],
   domiciliario: "", horaLlamada: currentTime(), horaLlegada: "",
   prioridad: "Normal" as const,
-  valorTotal: "", pagos: [],
+  valorTotal: "", pagos: [], gastosDomiciliario: [],
   estadoPago: "Pendiente por pago" as const, movimiento: "Ingreso" as const,
   observaciones: "",
   estadoOrden: "Pendiente de recepción" as const,
