@@ -1,7 +1,7 @@
 import type { ComboCatalogo, ServicioCatalogo } from "../constants/services";
 import type { Cliente, Medico, Orden, Responsable } from "../types";
 import type { DailyTask, TaskCategory, TaskForm } from "../types/tasks";
-import { getCurrentUser } from "./auth";
+import { getCurrentUser, setSessionMarker } from "./auth";
 
 
 
@@ -20,6 +20,10 @@ async function request<T>(endpoint:string, options: RequestInit = {},): Promise<
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
+        if (response.status === 401) {
+            setSessionMarker(false);
+            window.dispatchEvent(new Event("irvet:unauthorized"));
+        }
         throw new Error(data?.message ?? "Error en la solicitud");
     }
 

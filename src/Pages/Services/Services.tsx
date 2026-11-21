@@ -183,7 +183,7 @@ export default function Services({
       setAuditState(null);
     } catch (error) {
       console.error("No se pudo guardar la modificación de la orden", error);
-      window.alert("No se pudo guardar la modificación. Verifique la conexión con el servidor.");
+      window.alert(error instanceof Error ? error.message : "No se pudo guardar la modificación.");
     }
   };
 
@@ -232,7 +232,7 @@ export default function Services({
       setEditingId(null);
     } catch (error) {
       console.error("No se pudo guardar la solicitud", error);
-      window.alert("No se pudo guardar la solicitud. Verifique la conexión con el servidor.");
+      window.alert(error instanceof Error ? error.message : "No se pudo guardar la solicitud.");
     }
   };
 
@@ -282,7 +282,7 @@ export default function Services({
       setDeleteId(null);
     } catch (error) {
       console.error("No se pudo eliminar la orden", error);
-      window.alert("No se pudo eliminar la orden. Verifique la conexión con el servidor.");
+      window.alert(error instanceof Error ? error.message : "No se pudo eliminar la orden.");
     }
   };
   const deletedTarget = ordenes.find((o) => o.id === deleteId);

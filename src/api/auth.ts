@@ -25,7 +25,7 @@ function hasSessionMarker() {
     }
 }
 
-function setSessionMarker(active: boolean) {
+export function setSessionMarker(active: boolean) {
     try {
         if (active) {
             sessionStorage.setItem(SESSION_KEY, "1");

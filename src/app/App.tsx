@@ -18,7 +18,7 @@ import type { ComboCatalogo } from "../constants/services";
 import Pendings from "../Pages/Pendings/Pendings";
 import Combos from "../Pages/Combo/Combos";
 import Login from "../Pages/Login/Login";
-import { getCurrentUser, login, logout, type AuthUser } from "../api/auth";
+import { getCurrentUser, login, logout, setSessionMarker, type AuthUser } from "../api/auth";
 import { useInactivityLogout } from "../hooks/useInactivityLogout";
 import ForgotPassword from "../Pages/PasswordRecovery/ForgotPassword";
 import ResetPassword from "../Pages/PasswordRecovery/ResetPassword";
@@ -210,6 +210,16 @@ function App() {
       setAuthLoading(false);
     });
 }, []);
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setSessionMarker(false);
+      setAuthUser(null);
+    };
+
+    window.addEventListener("irvet:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("irvet:unauthorized", handleUnauthorized);
+  }, []);
 
   useEffect(() => {
     if (!authUser) return;
