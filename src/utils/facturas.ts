@@ -14,8 +14,13 @@ export interface ConflictoFacturas {
 
 const INITIAL_INVOICE_CONSECUTIVE = 30000;
 
-function normalizeClinicName(value: string): string {
-  return value
+function text(value: unknown): string {
+  if (typeof value === "string") return value;
+  return typeof value === "number" ? String(value) : "";
+}
+
+function normalizeClinicName(value: unknown): string {
+  return text(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
@@ -25,7 +30,7 @@ function normalizeClinicName(value: string): string {
 function nextInvoiceNumber(servicios: readonly ServicioFacturable[]): string {
   // The number is not reserved after its last service is deleted, so that number may be reused.
   const maxExistingNumber = servicios.reduce((max, servicio) => {
-    const match = /^FAC-(\d+)$/i.exec(servicio.factura);
+    const match = /^FAC-(\d+)$/i.exec(text(servicio.factura));
     return match ? Math.max(max, Number(match[1])) : max;
   }, INITIAL_INVOICE_CONSECUTIVE);
 
@@ -37,17 +42,19 @@ export function getOrCreateInvoiceNumber(
   veterinariaId: string,
   fecha: string,
 ): string {
-  if (!veterinariaId.trim() || !fecha) return "";
+  const clinicName = text(veterinariaId);
+  const serviceDate = text(fecha);
+  if (!clinicName.trim() || !serviceDate) return "";
 
-  const clinicKey = normalizeClinicName(veterinariaId);
+  const clinicKey = normalizeClinicName(clinicName);
   const existing = servicios.find(
     (servicio) =>
       normalizeClinicName(servicio.cliente) === clinicKey &&
-      servicio.fecha === fecha &&
-      servicio.factura,
+      text(servicio.fecha) === serviceDate &&
+      text(servicio.factura),
   );
 
-  return existing?.factura ?? nextInvoiceNumber(servicios);
+  return text(existing?.factura) || nextInvoiceNumber(servicios);
 }
 
 export function reassignInvoiceNumber(
@@ -70,8 +77,11 @@ export function findInvoiceConflicts(
   const groups = new Map<string, ServicioFacturable[]>();
 
   for (const servicio of servicios) {
-    if (!servicio.cliente.trim() || !servicio.fecha || !servicio.factura) continue;
-    const key = `${normalizeClinicName(servicio.cliente)}|${servicio.fecha}`;
+    const clinicName = text(servicio.cliente);
+    const serviceDate = text(servicio.fecha);
+    const invoice = text(servicio.factura);
+    if (!clinicName.trim() || !serviceDate || !invoice) continue;
+    const key = `${normalizeClinicName(clinicName)}|${serviceDate}`;
     const group = groups.get(key) ?? [];
     group.push(servicio);
     groups.set(key, group);
@@ -79,13 +89,13 @@ export function findInvoiceConflicts(
 
   return [...groups.values()]
     .map((group) => {
-      const invoices = [...new Set(group.map((servicio) => servicio.factura))];
+      const invoices = [...new Set(group.map((servicio) => text(servicio.factura)))];
       return invoices.length > 1
         ? {
-            veterinaria: group[0].cliente,
-            fecha: group[0].fecha,
-            facturas: invoices,
-            servicioIds: group.map((servicio) => servicio.id),
+            veterinaria: text(group[0].cliente),
+            fecha: text(group[0].fecha),
+            facturas: invoices.map(text),
+            servicioIds: group.map((servicio) => text(servicio.id)),
           }
         : null;
     })

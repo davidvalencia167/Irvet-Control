@@ -8,26 +8,31 @@ interface NameParts {
   normalizedSurname: string;
 }
 
-function normalizeName(value: string): string {
-  return value
+function text(value: unknown): string {
+  if (typeof value === "string") return value;
+  return typeof value === "number" ? String(value) : "";
+}
+
+function normalizeName(value: unknown): string {
+  return text(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase()
     .trim();
 }
 
-function splitName(value: string): { firstName: string; surname: string } {
-  const [firstName = "", ...surnameParts] = value.trim().split(/\s+/);
+function splitName(value: unknown): { firstName: string; surname: string } {
+  const [firstName = "", ...surnameParts] = text(value).trim().split(/\s+/);
   return { firstName, surname: surnameParts.join(" ") };
 }
 
 export function formatResponsableNames(
   responsables: Responsable[],
 ): Map<string, string> {
-  const parts: NameParts[] = responsables.map((responsable) => {
+  const parts: NameParts[] = (Array.isArray(responsables) ? responsables : []).map((responsable) => {
     const { firstName, surname } = splitName(responsable.nombre);
     return {
-      id: responsable.id,
+      id: text(responsable.id),
       firstName,
       surname,
       normalizedFirstName: normalizeName(firstName),
@@ -82,22 +87,23 @@ export function formatResponsableName(
   formattedNames: ReadonlyMap<string, string>,
 ): string {
   const normalizedValue = normalizeName(nameOrId);
-  const exactMatch = responsables.find(
+  const people = Array.isArray(responsables) ? responsables : [];
+  const exactMatch = people.find(
     (responsable) =>
       normalizeName(responsable.id) === normalizedValue ||
       normalizeName(responsable.nombre) === normalizedValue ||
       normalizeName(responsable.usuario) === normalizedValue,
   );
   if (exactMatch) {
-    return formattedNames.get(exactMatch.id) ?? splitName(exactMatch.nombre).firstName;
+    return formattedNames.get(text(exactMatch.id)) ?? splitName(exactMatch.nombre).firstName;
   }
 
-  const firstNameMatches = responsables.filter(
+  const firstNameMatches = people.filter(
     (responsable) =>
       normalizeName(splitName(responsable.nombre).firstName) === normalizedValue,
   );
   if (firstNameMatches.length === 1) {
-    return formattedNames.get(firstNameMatches[0].id) ?? nameOrId;
+    return formattedNames.get(text(firstNameMatches[0].id)) ?? nameOrId;
   }
 
   return splitName(nameOrId).firstName || nameOrId;
