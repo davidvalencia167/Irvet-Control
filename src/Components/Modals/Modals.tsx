@@ -1,4 +1,4 @@
-import { AlertTriangle, ClipboardList, PawPrint, X } from "lucide-react";
+import { AlertTriangle, ClipboardList, PawPrint, Pencil, X } from "lucide-react";
 import React, { useState } from "react";
 import type { Orden } from "../../types";
 import { calculatePaymentSummary } from "../../utils/payment";
@@ -27,7 +27,7 @@ function Section({emoji, title, children}: {emoji: string; title: string; childr
     )
 }
 
-export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => void}) {
+export function ViewOrderModal({orden, onClose, onEdit}: {orden: Orden; onClose: () => void; onEdit?: () => void}) {
     const summary = calculatePaymentSummary(orden.valorTotal, orden.pagos, orden.gastosDomiciliario);
 
     return(
@@ -110,7 +110,6 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
 
                     <Section emoji="🚗" title="Domicilio y Horarios">
                       <Row label="Domiciliario"  value={orden.domiciliario} />
-                      <Row label="Hora Llamada"  value={orden.horaLlamada} />
                       <Row label="Hora Llegada"  value={orden.horaLlegada} />
                       <Row label="Prioridad"     value={orden.prioridad} />
                     </Section>
@@ -176,6 +175,18 @@ export function ViewOrderModal({orden, onClose}: {orden: Orden; onClose: () => v
                         </Section>
                     )}
                 </div>
+                {onEdit && (
+                  <div className="flex justify-end border-t border-slate-100 px-6 py-3">
+                    <button
+                      type="button"
+                      onClick={onEdit}
+                      className="flex items-center gap-2 rounded-lg bg-[#1B2B4B] px-3 py-2 text-[12px] font-bold text-white focus-visible:outline focus-visible:outline-[#2BB5C3]"
+                    >
+                      <Pencil size={14} />
+                      {orden.estadoOrden === "Pendiente de recepción" ? "Completar solicitud" : "Editar orden"}
+                    </button>
+                  </div>
+                )}
             </div>
         </div>
     )

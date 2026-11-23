@@ -611,6 +611,7 @@ if (authLoading) {
       sidebarItems={visibleSidebarItems}
       catalogo={catalogo}
       ordenes={ordenes}
+      responsables={responsables}
       tasks={tasks}
       onOrdenesChange={setOrdenes}
       userName={authUser.nombre}

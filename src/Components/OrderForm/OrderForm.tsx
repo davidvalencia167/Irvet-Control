@@ -1,24 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CourierExpense, FormOrden, PaymentRow, PetEntry } from "../../types";
-import { AlertCircle, ChevronDown, ChevronUp, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
+import type { CourierExpense, FormOrden, Orden, PaymentRow, PetEntry, Responsable } from "../../types";
+import { AlertCircle, ChevronDown, ChevronUp, Clock, Plus, RefreshCw, Save, Trash2, X } from "lucide-react";
 import { CLIENTES, DOMICILIARIOS, EMPTY_FORM, IC, MEDIOS_PAGO, newCourierExpense, newPaymentRow, newPet, RESPONSABLES } from "../../constants";
 import { BREEDS_BY_SPECIES, SPECIES } from "../../constants/breeds";
 import { calculatePetServicesTotal, type ServicioCatalogo } from "../../constants/services";
 import { calculatePaymentSummary } from "../../utils/payment";
+import { formatResponsableNames } from "../../utils/responsables";
+import { getOrCreateInvoiceNumber, reassignInvoiceNumber } from "../../utils/facturas";
 
-function Label({ text, required }: { text: string; required?: boolean }) {
-  return <label className="block text-[11px] font-bold text-[#6B7A99] mb-1.5 uppercase tracking-wider">{text}{required && <span className="text-rose-500 ml-0.5">*</span>}</label>;
+function Label({ text, required, htmlFor }: { text: string; required?: boolean; htmlFor?: string }) {
+  return <label htmlFor={htmlFor} className="block text-[11px] font-bold text-[#6B7A99] mb-1 uppercase tracking-wider">{text}{required && <span className="text-rose-500 ml-0.5">*</span>}</label>;
 }
 function FieldErr({ msg }: { msg?: string }) {
   return msg ? <p className="text-[11px] text-rose-500 mt-1 flex items-center gap-1"><AlertCircle size={10} />{msg}</p> : null;
 }
 
 function ClientSearch({
+  id,
   value,
   options,
   onChange,
   hasError,
 }: {
+  id: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
@@ -34,6 +38,7 @@ function ClientSearch({
   return (
     <div className="relative">
       <input
+        id={id}
         value={query}
         onChange={(event) => {
           const nextQuery = event.target.value;
@@ -44,13 +49,19 @@ function ClientSearch({
         onFocus={() => setOpen(true)}
         onBlur={() => window.setTimeout(() => setOpen(false), 150)}
         placeholder="Buscar cliente / clínica..."
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+        aria-controls={`${id}-options`}
         className={`${IC} ${hasError ? "border-rose-400" : ""}`}
       />
       {open && (
-        <div className="absolute z-30 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-[rgba(27,43,75,0.1)] bg-white py-1 shadow-lg">
+        <div id={`${id}-options`} role="listbox" className="absolute z-30 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-[rgba(27,43,75,0.1)] bg-white py-1 shadow-lg">
           {filtered.length > 0 ? filtered.map((option) => (
             <button
               type="button"
+              role="option"
+              aria-selected={option === value}
               key={option}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
@@ -516,14 +527,27 @@ function PaymentBlock({
   );
 }
 
-interface OrderFormProps { factura: string; editingId: string | null; initialForm?: FormOrden; errors: Record<string,string>; catalogo: Record<string,ServicioCatalogo[]>; onSave: (form: FormOrden, finalize?: boolean) => void; onClear: () => void; onCancelEdit: () => void; }
+interface OrderFormProps { editingId: string | null; initialForm?: FormOrden; errors: Record<string,string>; catalogo: Record<string,ServicioCatalogo[]>; ordenes: Orden[]; responsables: Responsable[]; saving: boolean; onSave: (form: FormOrden, finalize?: boolean) => void; onClear: () => void; onCancelEdit: () => void; }
 
-export default function OrderForm({ factura, editingId, initialForm, errors, catalogo, onSave, onClear, onCancelEdit }: OrderFormProps) {
+function removeLegacyCallTime(form: FormOrden): FormOrden {
+  const cleaned = { ...form } as FormOrden & { horaLlamada?: unknown };
+  delete cleaned.horaLlamada;
+  return cleaned;
+}
+
+export default function OrderForm({ editingId, initialForm, errors, catalogo, ordenes, responsables, saving, onSave, onClear, onCancelEdit }: OrderFormProps) {
   const [activeTab, setActiveTab] = useState("general");
   const [focusPetId, setFocusPetId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormOrden>(() => initialForm ? { ...initialForm, mascotas: initialForm.mascotas.map(p => ({...p, servicios: p.servicios ?? []})), pagos: initialForm.pagos ?? [] } : EMPTY_FORM());
+  const [form, setForm] = useState<FormOrden>(() => initialForm ? { ...removeLegacyCallTime(initialForm), mascotas: initialForm.mascotas.map(p => ({...p, servicios: p.servicios ?? []})), pagos: initialForm.pagos ?? [] } : EMPTY_FORM());
   const completing = Boolean(editingId);
-  const upd = (k: keyof FormOrden, v: unknown) => setForm(f => ({...f,[k]:v}));
+  const formattedResponsables = useMemo(() => formatResponsableNames(responsables), [responsables]);
+  const upd = <K extends keyof FormOrden>(k: K, v: FormOrden[K]) => setForm(f => ({...f,[k]:v}));
+  const originalOrder = editingId ? ordenes.find((order) => order.id === editingId) : undefined;
+  const factura = editingId
+    ? originalOrder?.cliente === form.cliente && originalOrder.fecha === form.fecha
+      ? originalOrder.factura
+      : reassignInvoiceNumber(ordenes, editingId, form.cliente, form.fecha)
+    : getOrCreateInvoiceNumber(ordenes, form.cliente, form.fecha);
 
   useEffect(() => {
     const total = form.mascotas.reduce((sum,p) => sum + calculatePetServicesTotal(p.servicios), 0);
@@ -561,13 +585,21 @@ export default function OrderForm({ factura, editingId, initialForm, errors, cat
   const tabHasError = (id:string) => id === "general" ? Boolean(errors.cliente) : id === "mascotas" ? Boolean(errors.mascotas || errors.servicios) : id === "pago" ? Boolean(errors.pagos) : false;
   const save = (finalize=false) => onSave(form, finalize);
 
-  const Actions = () => <div className="flex items-center gap-3 pt-4 mt-4 border-t border-[rgba(27,43,75,0.06)]"><button type="button" onClick={() => save(false)} className="flex items-center gap-2 text-white text-[13px] font-bold px-5 py-2.5 rounded-xl" style={{background:"#2BB5C3",boxShadow:"0 4px 12px rgba(43,181,195,0.35)"}}><Save size={15}/>{completing ? "Guardar avances" : "Guardar solicitud"}</button>{completing && <button type="button" onClick={() => save(true)} className="flex items-center gap-2 text-white text-[13px] font-bold px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600"><Save size={15}/>Finalizar orden</button>}<button type="button" onClick={clear} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[13px] font-bold px-4 py-2.5 rounded-xl"><RefreshCw size={14}/>Limpiar</button>{completing && <button type="button" onClick={() => {clear();onCancelEdit()}} className="flex items-center gap-2 border border-[rgba(27,43,75,0.1)] text-[#6B7A99] text-[13px] font-bold px-4 py-2.5 rounded-xl"><X size={14}/>Cancelar</button>}</div>;
+  const Actions = () => <div className="flex items-center gap-3 pt-4 mt-4 border-t border-[rgba(27,43,75,0.06)]"><button type="button" disabled={saving} onClick={() => save(false)} className="flex items-center gap-2 text-white text-[13px] font-bold px-5 py-2.5 rounded-xl disabled:cursor-not-allowed disabled:opacity-60" style={{background:"#2BB5C3",boxShadow:"0 4px 12px rgba(43,181,195,0.35)"}}><Save size={15}/>{saving ? "Guardando..." : completing ? "Guardar avances" : "Guardar solicitud"}</button>{completing && <button type="button" disabled={saving} onClick={() => save(true)} className="flex items-center gap-2 text-white text-[13px] font-bold px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"><Save size={15}/>Finalizar orden</button>}<button type="button" disabled={saving} onClick={clear} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[13px] font-bold px-4 py-2.5 rounded-xl disabled:cursor-not-allowed disabled:opacity-60"><RefreshCw size={14}/>Limpiar</button>{completing && <button type="button" disabled={saving} onClick={() => {clear();onCancelEdit()}} className="flex items-center gap-2 border border-[rgba(27,43,75,0.1)] text-[#6B7A99] text-[13px] font-bold px-4 py-2.5 rounded-xl disabled:cursor-not-allowed disabled:opacity-60"><X size={14}/>Cancelar</button>}</div>;
 
   return <div className="bg-white rounded-2xl border border-[rgba(27,43,75,0.06)] overflow-hidden" style={{boxShadow:"0 1px 6px rgba(27,43,75,0.06)"}}>
-    <div className="px-6 py-4 flex items-center justify-between" style={{background:"linear-gradient(135deg,#1B2B4B 0%,#243861 100%)"}}><div><h2 className="text-white font-extrabold text-[15px] tracking-tight">{completing ? "Completar Orden de Servicio" : "Nueva Solicitud de Servicio"}</h2><p className="text-white/60 text-[11px] mt-0.5">{completing ? "La solicitud fue recibida. Complete mascotas, exámenes, pago y observaciones." : "Registre la información general ahora; complete el resto cuando llegue el domiciliario."}</p></div><div className="flex items-center gap-2">{completing && <span className="text-[10px] font-bold px-3 py-1 rounded-lg bg-amber-400/20 text-amber-200">{form.estadoOrden}</span>}<span className="text-[11px] font-bold text-[#2BB5C3] bg-[#2BB5C3]/15 px-3 py-1.5 rounded-lg font-mono">{factura}</span></div></div>
-    <div className="flex border-b border-[rgba(27,43,75,0.08)] px-6 pt-3 gap-1 overflow-x-auto">{TABS.map(tab => <button type="button" key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-2 rounded-t-xl text-[13px] font-bold whitespace-nowrap border-b-2 ${activeTab===tab.id?"border-[#2BB5C3] text-[#2BB5C3] bg-[#2BB5C3]/5":"border-transparent text-[#6B7A99]"}`}><span>{tab.emoji}</span>{tab.label}{tab.id==="mascotas"&&form.mascotas.length>0&&<span className="text-[10px] font-bold bg-[#2BB5C3]/15 text-[#2BB5C3] px-1.5 py-0.5 rounded-full">{form.mascotas.length}</span>}{tabHasError(tab.id)&&<span className="w-1.5 h-1.5 rounded-full bg-rose-500"/>}</button>)}</div>
-    <div className="p-6">
-      {activeTab === "general" && <div className="space-y-4"><div className="grid grid-cols-4 gap-4"><div><Label text="Fecha" required/><input type="date" value={form.fecha} readOnly className={`${IC} bg-[#F4F7FA]`}/></div><div><Label text="Hora de solicitud" required/><input type="time" value={form.horaSolicitud} readOnly className={`${IC} bg-[#F4F7FA]`}/></div><div><Label text="Responsable" required/><select value={form.responsable} onChange={e=>upd("responsable",e.target.value)} className={IC}>{RESPONSABLES.map(r=><option key={r}>{r}</option>)}</select></div><div><Label text="Prioridad"/><select value={form.prioridad} onChange={e=>upd("prioridad",e.target.value as FormOrden["prioridad"])} className={IC}><option>Normal</option><option>Prioritaria</option><option>Urgente</option></select></div></div><div><Label text="Cliente / Clínica" required/><ClientSearch key={form.cliente} value={form.cliente} options={CLIENTES} onChange={(cliente) => upd("cliente", cliente)} hasError={Boolean(errors.cliente)}/><FieldErr msg={errors.cliente}/></div><div><Label text="Domiciliario"/><select value={form.domiciliario} onChange={e=>upd("domiciliario",e.target.value)} className={IC}><option value="">Sin domicilio</option>{DOMICILIARIOS.map(d=><option key={d}>{d}</option>)}</select></div><div className="grid grid-cols-2 gap-4"><div><Label text="Hora de llamada"/><input type="time" value={form.horaLlamada} onChange={e=>upd("horaLlamada",e.target.value)} className={IC}/></div><div><Label text="Hora de llegada"/><input type="time" value={form.horaLlegada} onChange={e=>upd("horaLlegada",e.target.value)} className={IC}/></div></div><div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-[11px] text-amber-800"><b>Pendiente de recepción:</b> esta solicitud puede guardarse sin mascotas, servicios ni pago. Esos datos se completan cuando llegue el domiciliario.</div><Actions/></div>}
+    <div className="px-4 py-2.5 flex items-center justify-between" style={{background:"linear-gradient(135deg,#1B2B4B 0%,#243861 100%)"}}><div><h2 className="text-white font-extrabold text-[15px] tracking-tight">{completing ? "Completar Orden de Servicio" : "Nueva Solicitud de Servicio"}</h2><p className="text-white/60 text-[11px] mt-0.5">{completing ? "La solicitud fue recibida. Complete mascotas, exámenes, pago y observaciones." : "Registre la información general ahora; complete el resto cuando llegue el domiciliario."}</p></div><div className="flex items-center gap-2">{completing && <span className="text-[10px] font-bold px-3 py-1 rounded-lg bg-amber-400/20 text-amber-200">{form.estadoOrden}</span>}<span className="text-[11px] font-bold text-[#2BB5C3] bg-[#2BB5C3]/15 px-3 py-1.5 rounded-lg font-mono">{factura || "Factura pendiente"}</span></div></div>
+    <div className="flex border-b border-[rgba(27,43,75,0.08)] px-4 pt-2 gap-1 overflow-x-auto">{TABS.map(tab => <button type="button" key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-t-xl text-[13px] font-bold whitespace-nowrap border-b-2 focus-visible:outline focus-visible:outline-[#2BB5C3] ${activeTab===tab.id?"border-[#2BB5C3] text-[#2BB5C3] bg-[#2BB5C3]/5":"border-transparent text-[#6B7A99]"}`}><span>{tab.emoji}</span>{tab.label}{tab.id==="mascotas"&&form.mascotas.length>0&&<span className="text-[10px] font-bold bg-[#2BB5C3]/15 text-[#2BB5C3] px-1.5 py-0.5 rounded-full">{form.mascotas.length}</span>}{tabHasError(tab.id)&&<span className="w-1.5 h-1.5 rounded-full bg-rose-500"/>}</button>)}</div>
+    <div className="p-4">
+      {activeTab === "general" && <div className="space-y-3"><div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+        <div><Label text="Fecha" required htmlFor="service-date"/><input id="service-date" type="date" value={form.fecha} onChange={e=>upd("fecha",e.target.value)} className={`${IC} h-9 px-2 py-1 text-xs`}/></div>
+        <div><Label text="Hora de solicitud" required htmlFor="service-request-time"/><div className="relative"><Clock size={14} aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6B7A99]"/><input id="service-request-time" type="time" value={form.horaSolicitud} onChange={e=>upd("horaSolicitud",e.target.value)} className={`${IC} h-9 pl-8 pr-2 py-1 text-xs`} /></div></div>
+        <div><Label text="Hora de llegada" htmlFor="service-arrival-time"/><input id="service-arrival-time" type="time" value={form.horaLlegada} onChange={e=>upd("horaLlegada",e.target.value)} className={`${IC} h-9 px-2 py-1 text-xs`}/></div>
+        <div><Label text="Responsable" required htmlFor="service-responsible"/><select id="service-responsible" value={form.responsable} onChange={e=>upd("responsable",e.target.value)} className={`${IC} h-9 px-2 py-1 text-xs`}>{!responsables.some(r=>r.nombre===form.responsable) && <option value={form.responsable}>{form.responsable}</option>}{responsables.length > 0 ? responsables.map(r=><option key={r.id} value={r.nombre}>{formattedResponsables.get(r.id) ?? r.nombre}</option>) : RESPONSABLES.map(r=><option key={r}>{r}</option>)}</select></div>
+        <div><Label text="Prioridad" htmlFor="service-priority"/><select id="service-priority" value={form.prioridad} onChange={e=>upd("prioridad",e.target.value as FormOrden["prioridad"])} className={`${IC} h-9 px-2 py-1 text-xs`}><option>Normal</option><option>Prioritaria</option><option>Urgente</option></select></div>
+        <div className="sm:col-span-2"><Label text="Veterinaria" required htmlFor="service-veterinary"/><ClientSearch id="service-veterinary" key={form.cliente} value={form.cliente} options={CLIENTES} onChange={(cliente) => upd("cliente", cliente)} hasError={Boolean(errors.cliente)}/><FieldErr msg={errors.cliente}/></div>
+        <div><Label text="Domiciliario" htmlFor="service-courier"/><select id="service-courier" value={form.domiciliario} onChange={e=>upd("domiciliario",e.target.value)} className={`${IC} h-9 px-2 py-1 text-xs`}><option value="">Sin domicilio</option>{DOMICILIARIOS.map(d=><option key={d}>{d}</option>)}</select></div>
+      </div><div className="rounded-lg bg-amber-50 border border-amber-100 p-2 text-[11px] text-amber-800"><b>Pendiente de recepción:</b> esta solicitud puede guardarse sin mascotas, servicios ni pago. Esos datos se completan cuando llegue el domiciliario.</div><Actions/></div>}
 
       {activeTab === "mascotas" && <div className="space-y-4">{!completing && <div className="rounded-xl bg-[#F8FAFC] p-4 text-[12px] text-[#6B7A99] border border-[rgba(27,43,75,0.06)]">Primero guarda la solicitud general. Cuando llegue el domiciliario, abre la solicitud desde el historial y pulsa <b>Completar</b> para registrar las mascotas y sus exámenes.</div>}{completing && <><div className="flex items-center justify-between"><div><p className="text-[13px] text-[#6B7A99]"><span className="font-bold text-[#1B2B4B]">{form.mascotas.length}</span> mascota{form.mascotas.length!==1?"s":""} en esta orden</p><p className="text-[10px] text-[#6B7A99]">Una orden puede contener varias mascotas y varios servicios por mascota.</p></div><button type="button" onClick={addPet} className="flex items-center gap-2 text-white text-[13px] font-bold px-4 py-2 rounded-xl" style={{background:"#2BB5C3"}}><Plus size={15}/>Agregar mascota</button></div>{form.mascotas.length===0&&<div className="border border-dashed rounded-xl p-8 text-center text-[12px] text-[#6B7A99]">Aún no se han registrado mascotas.</div>}{form.mascotas.map((pet,i)=><PetCard key={pet.id} pet={pet} index={i} catalogo={catalogo} medico={{ nombre: form.nombreMedico, matricula: form.matriculaMedico }} onChange={updatePet} onMedicoChange={patch => setForm(f => ({ ...f, ...patch }))} onRemove={removePet} canRemove={form.mascotas.length>1} shouldAutoFocus={pet.id === focusPetId}/>)}</>}<Actions/></div>}
 

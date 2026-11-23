@@ -86,7 +86,6 @@ export interface Orden {
     matriculaMedico: string;
     mascotas: PetEntry[];
     domiciliario: string;
-    horaLlamada: string;
     horaLlegada: string;
     prioridad: "Normal" | "Prioritaria" | "Urgente";
     valorTotal: string;

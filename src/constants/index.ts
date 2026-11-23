@@ -41,9 +41,6 @@ export const currentDate = () => {
 
 export const currentTime = () => new Date().toTimeString().slice(0, 5);
 
-let _counter = 30000;
-export const nextFactura = () => `FAC-${++_counter}`;
-
 export const newPet = (): PetEntry => ({
   id: crypto.randomUUID(),
   numeroOrden: "",
@@ -81,7 +78,7 @@ export const EMPTY_FORM = () => ({
   tipoServicio: "", descripcionServicio: "", serviciosSeleccionados: [], cantidad: "0",
   nombreMedico: "", matriculaMedico: "",
   mascotas: [],
-  domiciliario: "", horaLlamada: currentTime(), horaLlegada: "",
+  domiciliario: "", horaLlegada: "",
   prioridad: "Normal" as const,
   valorTotal: "", pagos: [], gastosDomiciliario: [],
   estadoPago: "Pendiente por pago" as const, movimiento: "Ingreso" as const,

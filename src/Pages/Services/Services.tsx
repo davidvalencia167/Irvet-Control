@@ -1,9 +1,7 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
-import StatsCards from "../../Components/StatsCards/StatsCards";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import MainLayout from "../../Layout/MainLayout";
-import type { AuditEntry, FormOrden, Orden } from "../../types";
+import type { AuditEntry, FormOrden, Orden, Responsable } from "../../types";
 import OrderForm from "../../Components/OrderForm/OrderForm";
-import { nextFactura } from "../../constants";
 import {
   AuditModal,
   ConfirmModal,
@@ -15,6 +13,7 @@ import type { ServicioCatalogo } from "../../constants/services";
 import type { DailyTask } from "../../types/tasks";
 import { api } from "../../api/resources";
 import { calculatePaymentSummary } from "../../utils/payment";
+import { findInvoiceConflicts, getOrCreateInvoiceNumber, reassignInvoiceNumber } from "../../utils/facturas";
 
 interface ServicesProps {
   activeModule?: string;
@@ -24,6 +23,7 @@ interface ServicesProps {
   sidebarItems?: SidebarItem[];
   catalogo: Record<string, ServicioCatalogo[]>;
   ordenes: Orden[];
+  responsables: Responsable[];
   tasks: DailyTask[];
   onOrdenesChange: Dispatch<SetStateAction<Orden[]>>;
 }
@@ -109,6 +109,7 @@ export default function Services({
   sidebarItems,
   catalogo,
   ordenes,
+  responsables,
   tasks,
   onOrdenesChange,
 }: ServicesProps) {
@@ -124,7 +125,19 @@ export default function Services({
   } | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const [formKey, setFormKey] = useState(0);
-  const currentFactura = useRef(nextFactura());
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const invoiceOrdersRef = useRef<Orden[]>(ordenes);
+  const pendingOrdersRef = useRef(new Map<string, Orden>());
+  const invoiceConflicts = findInvoiceConflicts(ordenes);
+
+  useEffect(() => {
+    const pendingIds = new Set(pendingOrdersRef.current.keys());
+    invoiceOrdersRef.current = [
+      ...pendingOrdersRef.current.values(),
+      ...ordenes.filter((order) => !pendingIds.has(order.id)),
+    ];
+  }, [ordenes]);
 
   const validate = (form: FormOrden, finalize = false) => {
     const e: Record<string, string> = {};
@@ -167,7 +180,10 @@ export default function Services({
     const updatedOrder: Orden = {
       ...form,
       id,
-      factura: original.factura,
+      factura:
+        original.cliente === form.cliente && original.fecha === form.fecha
+          ? original.factura
+          : reassignInvoiceNumber(ordenes, id, form.cliente, form.fecha),
       estadoOrden: finalize
         ? "Completada"
         : original.estadoOrden === "Pendiente de recepción"
@@ -177,6 +193,9 @@ export default function Services({
     };
     try {
       const result = await api.updateOrder(updatedOrder);
+      invoiceOrdersRef.current = invoiceOrdersRef.current.map((order) =>
+        order.id === id ? result.order : order,
+      );
       onOrdenesChange((prev) => prev.map((order) => order.id === id ? result.order : order));
       setEditingId(null);
       setFormKey((k) => k + 1);
@@ -207,8 +226,11 @@ export default function Services({
       await commitEdit(editingId, form, [], finalize);
       return;
     }
-    const invoice = currentFactura.current;
-    currentFactura.current = nextFactura();
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    // The API currently stores a clinic name in `cliente`; use it as the key until it exposes a veterinary ID.
+    const invoice = getOrCreateInvoiceNumber(invoiceOrdersRef.current, form.cliente, form.fecha);
     const newOrder: Orden = {
       ...form,
       id: crypto.randomUUID(),
@@ -225,14 +247,26 @@ export default function Services({
       estadoOrden: "Pendiente de recepción",
       auditoria: [],
     };
+    pendingOrdersRef.current.set(newOrder.id, newOrder);
+    invoiceOrdersRef.current = [newOrder, ...invoiceOrdersRef.current];
     try {
       const result = await api.saveOrder(newOrder);
+      pendingOrdersRef.current.delete(newOrder.id);
+      invoiceOrdersRef.current = [
+        result.order,
+        ...invoiceOrdersRef.current.filter((order) => order.id !== newOrder.id),
+      ];
       onOrdenesChange((prev) => [result.order, ...prev]);
       setFormKey((k) => k + 1);
       setEditingId(null);
     } catch (error) {
+      pendingOrdersRef.current.delete(newOrder.id);
+      invoiceOrdersRef.current = invoiceOrdersRef.current.filter((order) => order.id !== newOrder.id);
       console.error("No se pudo guardar la solicitud", error);
       window.alert(error instanceof Error ? error.message : "No se pudo guardar la solicitud.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
@@ -278,6 +312,7 @@ export default function Services({
   const handleDelete = async (id: string) => {
     try {
       await api.deleteOrder(id);
+      invoiceOrdersRef.current = invoiceOrdersRef.current.filter((order) => order.id !== id);
       onOrdenesChange((prev) => prev.filter((o) => o.id !== id));
       setDeleteId(null);
     } catch (error) {
@@ -290,7 +325,15 @@ export default function Services({
   return (
     <>
       {viewOrden && (
-        <ViewOrderModal orden={viewOrden} onClose={() => setViewOrden(null)} />
+        <ViewOrderModal
+          orden={viewOrden}
+          onClose={() => setViewOrden(null)}
+          onEdit={() => {
+            const orden = viewOrden;
+            setViewOrden(null);
+            handleEdit(orden);
+          }}
+        />
       )}
       {deleteId && deletedTarget && (
         <ConfirmModal
@@ -317,17 +360,13 @@ export default function Services({
         userName={userName}
         onLogout={onLogout}
       >
-        <StatsCards ordenes={ordenes} tasks={tasks} />
         <div ref={formRef}>
           <OrderForm
             key={formKey}
-            factura={
-              editingId
-                ? (ordenes.find((o) => o.id === editingId)?.factura ??
-                  currentFactura.current)
-                : currentFactura.current
-            }
             editingId={editingId}
+            saving={saving}
+            ordenes={ordenes}
+            responsables={responsables}
             initialForm={
               editingId ? ordenes.find((o) => o.id === editingId) : undefined
             }
@@ -340,9 +379,10 @@ export default function Services({
         </div>
         <ServiceHistory
           ordenes={ordenes}
+          responsables={responsables}
           tasks={tasks}
+          invoiceConflicts={invoiceConflicts}
           onView={setViewOrden}
-          onEdit={handleEdit}
           onDeleteRequest={setDeleteId}
         />
       </MainLayout>
