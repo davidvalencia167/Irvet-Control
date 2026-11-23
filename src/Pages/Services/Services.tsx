@@ -177,6 +177,9 @@ export default function Services({
   ) => {
     const original = ordenes.find((order) => order.id === id);
     if (!original) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
     const updatedOrder: Orden = {
       ...form,
       id,
@@ -203,6 +206,9 @@ export default function Services({
     } catch (error) {
       console.error("No se pudo guardar la modificación de la orden", error);
       window.alert(error instanceof Error ? error.message : "No se pudo guardar la modificación.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
