@@ -101,6 +101,23 @@ function getCoveredAmount(form: FormOrden): number {
   return calculatePaymentSummary(form.valorTotal, form.pagos).covered;
 }
 
+function normalizePetAges(form: FormOrden): FormOrden {
+  return {
+    ...form,
+    mascotas: form.mascotas.map((pet) => {
+      const edadAnios = pet.edadAnios.trim() || "0";
+      const edadMeses = pet.edadMeses.trim() || "0";
+
+      return {
+        ...pet,
+        edadAnios,
+        edadMeses,
+        edad: `${edadAnios} años, ${edadMeses} meses`,
+      };
+    }),
+  };
+}
+
 export default function Services({
   activeModule,
   onSelectModule,
@@ -186,13 +203,14 @@ export default function Services({
     if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
+    const payload = normalizePetAges(form);
     const updatedOrder: Orden = {
-      ...form,
+      ...payload,
       id,
       factura:
-        original.cliente === form.cliente && original.fecha === form.fecha
+        original.cliente === payload.cliente && original.fecha === payload.fecha
           ? original.factura
-          : reassignInvoiceNumber(ordenes, id, form.cliente, form.fecha),
+          : reassignInvoiceNumber(ordenes, id, payload.cliente, payload.fecha),
       estadoOrden: finalize
         ? "Completada"
         : original.estadoOrden === "Pendiente de recepción"
