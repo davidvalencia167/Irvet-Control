@@ -24,7 +24,11 @@ async function request<T>(endpoint:string, options: RequestInit = {},): Promise<
             setSessionMarker(false);
             window.dispatchEvent(new Event("irvet:unauthorized"));
         }
-        throw new Error(data?.message ?? "Error en la solicitud");
+        const detail = data?.message
+            ?? data?.error
+            ?? (Array.isArray(data?.errors) ? data.errors.join(", ") : "")
+            ?? "";
+        throw new Error(detail ? `${detail} (HTTP ${response.status})` : `Error en la solicitud (HTTP ${response.status})`);
     }
 
     return data as T;

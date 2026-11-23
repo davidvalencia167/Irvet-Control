@@ -142,6 +142,12 @@ export default function Services({
   const validate = (form: FormOrden, finalize = false) => {
     const e: Record<string, string> = {};
     if (!form.cliente) e.cliente = "Requerido";
+    if (form.pagos.some((payment) =>
+      payment.mascotaId &&
+      !form.mascotas.some((pet) => pet.id === payment.mascotaId)
+    )) {
+      e.pagos = "Hay un pago asociado a una mascota eliminada.";
+    }
     if (finalize) {
       if (form.mascotas.length === 0)
         e.mascotas = "Agregue al menos una mascota antes de finalizar.";

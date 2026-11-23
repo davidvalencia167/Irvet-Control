@@ -580,7 +580,11 @@ export default function OrderForm({ editingId, initialForm, errors, catalogo, or
     setFocusPetId(pet.id);
     setForm(f => ({...f, mascotas:[pet, ...f.mascotas]}));
   };
-  const removePet = (id:string) => setForm(f => ({...f, mascotas:f.mascotas.filter(p => p.id !== id)}));
+  const removePet = (id:string) => setForm(f => ({
+    ...f,
+    mascotas: f.mascotas.filter(p => p.id !== id),
+    pagos: f.pagos.filter(p => p.mascotaId !== id),
+  }));
   const addPay = () => setForm((form) => ({
     ...form,
     pagos: [...form.pagos, { ...newPaymentRow(), cliente: form.cliente, domiciliario: form.domiciliario, responsable: form.responsable }],
