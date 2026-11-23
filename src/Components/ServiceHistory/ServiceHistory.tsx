@@ -5,7 +5,7 @@ import type { DailyTask } from "../../types/tasks";
 import type { ConflictoFacturas } from "../../utils/facturas";
 import { formatResponsableName, formatResponsableNames } from "../../utils/responsables";
 
-export const MORNING_COLUMN_SIDE: "left" | "right" = "right";
+export const MORNING_COLUMN_SIDE: "left" | "right" = "left";
 export const MORNING_CUTOFF = "12:00";
 
 interface ServiceHistoryProps {
