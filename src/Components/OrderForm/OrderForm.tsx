@@ -136,10 +136,10 @@ function PetCard({ pet, index, catalogo, medico, onChange, onMedicoChange, onRem
     {open && <div className="p-4 grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(400px,0.9fr)] gap-5 items-start border-t border-[rgba(27,43,75,0.06)]">
       <div className="space-y-5">
       <section className="space-y-3">
-        <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos de la mascota</p><p className="text-[10px] text-[#6B7A99]">Identificación y características del paciente.</p></div>
+        <div><p className="text-[12px] font-extrabold text-[#1B2B4B]">Datos de la mascota</p><p className="text-[10px] text-[#6B7A99]">Puedes guardar avances sin completar estos datos. El nombre y los servicios se solicitan al finalizar la orden.</p></div>
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
           <div className="sm:col-span-2"><Label text="N° Orden"/><input value={pet.numeroOrden} onChange={e => update({ numeroOrden: e.target.value })} placeholder="Ej: 106025" className={IC}/></div>
-          <div className="sm:col-span-4"><Label text="Nombre de la Mascota" required/><input ref={nameInputRef} value={pet.nombre} onChange={e => update({ nombre: e.target.value })} placeholder="Ej: Rocko" className={IC}/></div>
+          <div className="sm:col-span-4"><Label text="Nombre de la Mascota"/><input ref={nameInputRef} value={pet.nombre} onChange={e => update({ nombre: e.target.value })} placeholder="Ej: Rocko" className={IC}/></div>
           <div className="sm:col-span-4"><Label text="Especie (opcional)"/><select value={pet.especie} onChange={e => update({ especie: e.target.value, raza: "" })} className={IC}><option value="">Seleccionar especie...</option>{SPECIES.map(s => <option key={s}>{s}</option>)}</select></div>
           <div className="sm:col-span-4"><Label text="Raza (opcional)"/><select value={pet.raza} onChange={e => update({ raza: e.target.value })} disabled={!pet.especie} className={`${IC} disabled:opacity-50`}><option value="">{pet.especie ? "Seleccionar raza..." : "Seleccione primero la especie"}</option>{breeds.map(b => <option key={b}>{b}</option>)}</select></div>
           <div className="sm:col-span-3"><Label text="Sexo (opcional)"/><select value={pet.sexo} onChange={e => update({ sexo: e.target.value })} className={IC}><option value="">Seleccionar...</option><option>Macho</option><option>Hembra</option></select></div>
