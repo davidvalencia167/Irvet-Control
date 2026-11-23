@@ -107,12 +107,16 @@ function normalizePetAges(form: FormOrden): FormOrden {
     mascotas: form.mascotas.map((pet) => {
       const edadAnios = pet.edadAnios.trim() || "0";
       const edadMeses = pet.edadMeses.trim() || "0";
+      const uniqueServices = new Map(
+        pet.servicios.map((service) => [service.descripcion.trim().toLocaleLowerCase(), service]),
+      );
 
       return {
         ...pet,
         edadAnios,
         edadMeses,
         edad: `${edadAnios} años, ${edadMeses} meses`,
+        servicios: [...uniqueServices.values()],
       };
     }),
   };
