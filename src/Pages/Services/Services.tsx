@@ -135,6 +135,7 @@ export default function Services({
   onOrdenesChange,
 }: ServicesProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [initialTab, setInitialTab] = useState<"general" | "mascotas">("general");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [viewOrden, setViewOrden] = useState<Orden | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -229,6 +230,7 @@ export default function Services({
       );
       onOrdenesChange((prev) => prev.map((order) => order.id === id ? result.order : order));
       setEditingId(null);
+      setInitialTab("general");
       setFormKey((k) => k + 1);
       setAuditState(null);
     } catch (error) {
@@ -291,6 +293,7 @@ export default function Services({
         ...invoiceOrdersRef.current.filter((order) => order.id !== newOrder.id),
       ];
       onOrdenesChange((prev) => [result.order, ...prev]);
+      setInitialTab("general");
       setFormKey((k) => k + 1);
       setEditingId(null);
     } catch (error) {
@@ -331,14 +334,16 @@ export default function Services({
     );
   };
 
-  const handleEdit = (o: Orden) => {
+  const handleEdit = (o: Orden, tab: "general" | "mascotas" = "general") => {
     setEditingId(o.id);
+    setInitialTab(tab);
     setErrors({});
     setFormKey((k) => k + 1);
     formRef.current?.scrollIntoView({ behavior: "smooth" });
   };
   const handleNewOrder = () => {
     setEditingId(null);
+    setInitialTab("general");
     setErrors({});
     setFormKey((k) => k + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -404,6 +409,7 @@ export default function Services({
             initialForm={
               editingId ? ordenes.find((o) => o.id === editingId) : undefined
             }
+            initialTab={initialTab}
             errors={errors}
             catalogo={catalogo}
             onSave={handleSave}
@@ -417,6 +423,7 @@ export default function Services({
           tasks={tasks}
           invoiceConflicts={invoiceConflicts}
           onView={setViewOrden}
+          onOpenPets={(orden) => handleEdit(orden, "mascotas")}
           onDeleteRequest={setDeleteId}
         />
       </MainLayout>

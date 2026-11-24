@@ -14,6 +14,7 @@ interface ServiceHistoryProps {
   tasks: DailyTask[];
   invoiceConflicts: ConflictoFacturas[];
   onView: (orden: Orden) => void;
+  onOpenPets: (orden: Orden) => void;
   onDeleteRequest: (id: string) => void;
 }
 
@@ -22,6 +23,7 @@ interface ServiceColumnProps {
   ordenes: Orden[];
   responsables: Responsable[];
   onView: (orden: Orden) => void;
+  onOpenPets: (orden: Orden) => void;
   onDeleteRequest: (id: string) => void;
 }
 
@@ -52,6 +54,7 @@ function ServiceColumn({
   ordenes,
   responsables,
   onView,
+  onOpenPets,
   onDeleteRequest,
 }: ServiceColumnProps) {
   const names = useMemo(() => formatResponsableNames(responsables), [responsables]);
@@ -77,7 +80,19 @@ function ServiceColumn({
             {ordenes.map((orden) => (
               <tr key={orden.id} className="border-t border-slate-100 text-sm hover:bg-[#F8FAFC]">
                 <td className="whitespace-nowrap px-2 py-1 text-[12px] font-semibold text-[#1B2B4B]">{orden.horaSolicitud || "—"}</td>
-                <td className="truncate px-2 py-1 text-[12px] text-[#1B2B4B]" title={orden.cliente}>{orden.cliente || "—"}</td>
+                <td className="truncate px-2 py-1 text-[12px] text-[#1B2B4B]" title={orden.cliente}>
+                  {orden.cliente ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenPets(orden)}
+                      aria-label={`Abrir solicitud de ${orden.cliente} en Mascotas`}
+                      title="Abrir solicitud en Mascotas"
+                      className="block w-full truncate text-left hover:text-[#2BB5C3] hover:underline focus-visible:outline focus-visible:outline-[#2BB5C3]"
+                    >
+                      {orden.cliente}
+                    </button>
+                  ) : "—"}
+                </td>
                 <td className="truncate px-2 py-1 text-[12px] text-[#6B7A99]" title={orden.responsable}>
                   {formatResponsableName(orden.responsable, responsables, names) || "—"}
                 </td>
@@ -126,6 +141,7 @@ export default function ServiceHistory({
   tasks,
   invoiceConflicts,
   onView,
+  onOpenPets,
   onDeleteRequest,
 }: ServiceHistoryProps) {
   const [search, setSearch] = useState("");
@@ -229,6 +245,7 @@ export default function ServiceHistory({
           ordenes={leftOrders}
           responsables={responsables}
           onView={onView}
+          onOpenPets={onOpenPets}
           onDeleteRequest={onDeleteRequest}
         />
         <ServiceColumn
@@ -236,6 +253,7 @@ export default function ServiceHistory({
           ordenes={rightOrders}
           responsables={responsables}
           onView={onView}
+          onOpenPets={onOpenPets}
           onDeleteRequest={onDeleteRequest}
         />
       </div>
