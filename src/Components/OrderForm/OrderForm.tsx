@@ -226,7 +226,7 @@ function PaymentBlock({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         <div className="bg-[#F8FAFC] rounded-xl p-3">
           <p className="text-[10px] font-bold text-[#6B7A99] uppercase">
             Valor de servicios
@@ -257,6 +257,11 @@ function PaymentBlock({
         <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
           <p className="text-[10px] font-bold text-blue-700 uppercase">Obsequios</p>
           <p className="text-[18px] font-extrabold text-blue-700">{formatMoney(summary.gifts)}</p>
+        </div>
+
+        <div className="bg-violet-50 rounded-xl p-3 border border-violet-200">
+          <p className="text-[10px] font-bold text-violet-700 uppercase">Descuentos</p>
+          <p className="text-[18px] font-extrabold text-violet-700">{formatMoney(summary.discounts)}</p>
         </div>
 
         <div
@@ -324,12 +329,10 @@ function PaymentBlock({
                   .reduce((sum, payment) => sum + Number(payment.valor || 0), 0)
               : 0;
             const cubiertoMascota = mascota
-              ? pagos
-                  .filter((payment) =>
-                    payment.mascotaId === mascota.id &&
-                    ["Pago", "Promoción", "Obsequio"].includes(payment.tipo ?? "Pago")
-                  )
-                  .reduce((sum, payment) => sum + Number(payment.valor || 0), 0)
+              ? calculatePaymentSummary(
+                  valorServiciosMascota,
+                  pagos.filter((payment) => payment.mascotaId === mascota.id),
+                ).covered
               : 0;
             const saldoMascota = Math.max(
               0,
@@ -350,16 +353,20 @@ function PaymentBlock({
 
                   <select
                     value={tipo}
-                    onChange={(e) =>
-                      onUpdateRow(row.id, "tipo", e.target.value)
-                    }
+                    onChange={(e) => {
+                      const nextType = e.target.value;
+                      onUpdateRow(row.id, "tipo", nextType);
+                      if (nextType === "Pendiente") {
+                        onUpdateRow(row.id, "valor", String(summary.pending));
+                      }
+                    }}
                     className={`${IC} w-full! h-10`}
                   >
                     <option value="Pago">Pago recibido</option>
                     <option value="Promoción">Promoción</option>
                     <option value="Obsequio">Obsequio / Gratis</option>
-                    <option value="Gasto">Gasto de caja</option>
-                    <option value="Ajuste financiero">Ajuste financiero</option>
+                    <option value="Descuento">Descuento</option>
+                    <option value="Pendiente">Pendiente (calculado)</option>
                   </select>
 
                   {tipo === "Pago" && (
@@ -381,17 +388,18 @@ function PaymentBlock({
 
                   <div>
                     <label className="block text-[10px] font-bold text-[#6B7A99] mb-1 uppercase">
-                      Valor pagado
+                      {tipo === "Descuento" ? "Valor del descuento" : tipo === "Pendiente" ? "Saldo pendiente" : "Valor"}
                     </label>
                     <input
                       type="number"
                       min="0"
-                      value={row.valor}
+                      value={tipo === "Pendiente" ? String(summary.pending) : row.valor}
                       onChange={(e) =>
                         onUpdateRow(row.id, "valor", e.target.value)
                       }
                       placeholder="$0"
-                      className={`${IC} w-full! h-10`}
+                      disabled={tipo === "Pendiente"}
+                      className={`${IC} w-full! h-10 disabled:cursor-not-allowed disabled:opacity-70`}
                     />
                   </div>
 
@@ -449,7 +457,7 @@ function PaymentBlock({
                       </span>
                       {cubiertoMascota > pagadoMascota && (
                         <span className="text-blue-700">
-                          Cubierto con promoción: $
+                          Beneficios / descuento: $
                           {(cubiertoMascota - pagadoMascota).toLocaleString("es-CO")}
                         </span>
                       )}

@@ -25,7 +25,14 @@ export interface PetEntry {
     servicios: ServicioOrden[];
 }
 
-export type PaymentType = "Pago" | "Promoción" | "Obsequio" | "Gasto" | "Ajuste financiero";
+export type PaymentType =
+    | "Pago"
+    | "Promoción"
+    | "Obsequio"
+    | "Descuento"
+    | "Pendiente"
+    | "Gasto"
+    | "Ajuste financiero";
 
 export interface PaymentRow {
     id: string;

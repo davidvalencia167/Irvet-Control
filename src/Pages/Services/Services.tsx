@@ -38,7 +38,7 @@ function detectChanges(original: Orden, updated: FormOrden): string[] {
   )
     changes.push("Servicios / exámenes");
   if (JSON.stringify(original.pagos) !== JSON.stringify(updated.pagos))
-    changes.push("Método(s) de pago");
+    changes.push("Pagos y descuentos");
   if (JSON.stringify(original.gastosDomiciliario ?? []) !== JSON.stringify(updated.gastosDomiciliario ?? []))
     changes.push("Gastos del domiciliario");
   if (original.domiciliario !== updated.domiciliario)
@@ -79,7 +79,7 @@ function auditValues(
         })),
       ),
     ];
-  if (campo === "Método(s) de pago")
+  if (campo === "Pagos y descuentos")
     return [JSON.stringify(original.pagos), JSON.stringify(updated.pagos)];
   if (campo === "Gastos del domiciliario")
     return [JSON.stringify(original.gastosDomiciliario ?? []), JSON.stringify(updated.gastosDomiciliario ?? [])];
@@ -180,8 +180,9 @@ export default function Services({
       if (
         form.pagos.some(
           (p) =>
-            Number(p.valor || 0) <= 0 ||
-            ((p.tipo ?? "Pago") === "Pago" && !p.medio),
+            (p.tipo ?? "Pago") !== "Pendiente" &&
+            (Number(p.valor || 0) <= 0 ||
+              ((p.tipo ?? "Pago") === "Pago" && !p.medio)),
         )
       ) {
         e.pagos = "Complete correctamente los movimientos de pago.";

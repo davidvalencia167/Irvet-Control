@@ -115,21 +115,22 @@ export function ViewOrderModal({orden, onClose, onEdit}: {orden: Orden; onClose:
                     </Section>
 
                     <Section emoji="💳" title="Pagos">
-                        {orden.pagos.filter((p) => p.medio || p.valor).map((p, i) => (
+                        {orden.pagos.filter((p) => p.medio || p.valor || p.tipo === "Pendiente").map((p, i) => (
                           <div key={p.id} className="flex justify-between py-1.5 border-b border-[rgba(27,43,75,0.05)]">
                             <span className="text-[11px] font-bold text-[#6B7A99]">
                               {p.tipo ?? "Pago"} · {p.medio || `Movimiento ${i + 1}`}
                               {p.concepto ? ` · ${p.concepto}` : ""}
                               {p.mascotaId ? ` · ${orden.mascotas.find((pet) => pet.id === p.mascotaId)?.nombre || "Mascota"}` : ""}
                             </span>
-                            <span className="text-[12px] font-semibold text-[#1B2B4B]">${Number(p.valor || 0).toLocaleString("es-CO")}</span>
+                            <span className="text-[12px] font-semibold text-[#1B2B4B]">${(p.tipo === "Pendiente" ? summary.pending : Number(p.valor || 0)).toLocaleString("es-CO")}</span>
                           </div>
                         ))}
-                        <div className="mt-2 grid grid-cols-3 gap-2">
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
                           {[
                             ["Total recibido", `$${summary.received.toLocaleString("es-CO")}`, "text-emerald-600"],
                             ["Promociones", `$${summary.promotions.toLocaleString("es-CO")}`, "text-blue-600"],
                             ["Obsequios", `$${summary.gifts.toLocaleString("es-CO")}`, "text-blue-600"],
+                            ["Descuentos", `$${summary.discounts.toLocaleString("es-CO")}`, "text-violet-600"],
                             ["Pendiente",    `$${summary.pending.toLocaleString("es-CO")}`,   summary.pending > 0 ? "text-amber-500" : "text-emerald-600"],
                             ["Estado",       orden.estadoPago,                           orden.estadoPago === "Pagado" ? "text-emerald-600" : "text-amber-500"],
                           ].map(([k, v, cls]) => (

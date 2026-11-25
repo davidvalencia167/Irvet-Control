@@ -5,6 +5,7 @@ export interface PaymentSummary {
   received: number;
   promotions: number;
   gifts: number;
+  discounts: number;
   covered: number;
   pending: number;
   status: "Pagado" | "Pago parcial" | "Pendiente por pago";
@@ -35,13 +36,15 @@ export function calculatePaymentSummary(
     .reduce((sum, payment) => sum + amount(payment.valor), 0);
   const gifts = payments.filter((payment) => payment.tipo === "Obsequio")
     .reduce((sum, payment) => sum + amount(payment.valor), 0);
+  const discounts = payments.filter((payment) => payment.tipo === "Descuento")
+    .reduce((sum, payment) => sum + amount(payment.valor), 0);
   const byMethod = payments
     .filter((payment) => (payment.tipo ?? "Pago") === "Pago" && payment.medio)
     .reduce<Record<string, number>>((methods, payment) => {
       methods[payment.medio] = (methods[payment.medio] ?? 0) + amount(payment.valor);
       return methods;
     }, {});
-  const covered = received + promotions + gifts;
+  const covered = received + promotions + gifts + discounts;
   const expensesTotal = expenses.filter((expense) => expense.autorizado)
     .reduce((sum, expense) => sum + amount(expense.valor), 0);
 
@@ -50,6 +53,7 @@ export function calculatePaymentSummary(
     received,
     promotions,
     gifts,
+    discounts,
     covered,
     pending: Math.max(0, total - covered),
     status: total > 0 && covered >= total ? "Pagado" : covered > 0 ? "Pago parcial" : "Pendiente por pago",

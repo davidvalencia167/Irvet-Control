@@ -19,6 +19,7 @@ import {
 import type { ComboCatalogo, ServicioCatalogo } from "../../constants/services";
 import type { Cliente, Medico, Orden, Responsable, ServicioOrden } from "../../types";
 import type { DailyTask } from "../../types/tasks";
+import { calculatePaymentSummary } from "../../utils/payment";
 
 interface DashboardAdminProps {
     ordenes: Orden[];
@@ -88,11 +89,8 @@ const clean = (value: string | undefined) => value?.trim() || EMPTY;
 const amount = (value: string | number | undefined) => Number(value || 0);
 
 function paymentTotal(order: Orden, onlyEffective = false) {
-    return (order.pagos ?? []).reduce(
-        (total, payment) =>
-            total + ((!onlyEffective || (payment.tipo ?? "Pago") === "Pago") ? amount(payment.valor) : 0),
-        0,
-    );
+    const summary = calculatePaymentSummary(order.valorTotal, order.pagos ?? []);
+    return onlyEffective ? summary.received : summary.covered;
 }
 
 function servicesOf(order: Orden): ServiceRecord[] {
@@ -187,7 +185,7 @@ export default function DashboardAdmin({
             uniqueClients,
             serviceCount,
             net: income - orderExpenses - taskExpenses,
-            incomplete: filteredOrders.filter((order) => !order.responsable.trim() || !order.cliente.trim() || !order.domiciliario.trim() || (order.pagos ?? []).some((payment) => !payment.medio.trim())).length,
+            incomplete: filteredOrders.filter((order) => !order.responsable.trim() || !order.cliente.trim() || !order.domiciliario.trim() || (order.pagos ?? []).some((payment) => (payment.tipo ?? "Pago") === "Pago" && !payment.medio.trim())).length,
         };
     }, [filteredOrders, filters.desde, filters.hasta, tasks]);
 

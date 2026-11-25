@@ -3,6 +3,7 @@ import type { Orden, PaymentRow } from "../../types";
 import { AlertTriangle, CalendarDays, Check, Download, Filter, Plus, Search, X } from "lucide-react";
 import { currentDate, IC, MEDIOS_PAGO } from "../../constants";
 import { calculatePetServicesTotal } from "../../constants/services";
+import { calculatePaymentSummary } from "../../utils/payment";
 
 type FiltroEstado = "todos" | "pendiente" | "parcial" | "vencido";
 
@@ -12,6 +13,13 @@ const formatMoney = (value: number) =>
         currency: "COP",
         maximumFractionDigits: 0,
     }).format(value);
+
+function getPetPaymentSummary(order: Orden, petId: string) {
+    const pet = order.mascotas.find((item) => item.id === petId);
+    if (!pet) return calculatePaymentSummary(0, []);
+    const payments = (order.pagos ?? []).filter((payment) => payment.mascotaId === petId);
+    return calculatePaymentSummary(calculatePetServicesTotal(pet.servicios ?? []), payments);
+}
 
 type PetPending = {
     id: string;
@@ -51,17 +59,10 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
     const pendientes = useMemo(() => {
         return ordenes
         .map((orden) => {
-            const totalPagado = (orden.pagos ?? [])
-            .filter((pago) => (pago.tipo ?? "Pago") === "Pago")
-            .reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
-
-            const totalCubierto = (orden.pagos ?? []).reduce(
-            (sum, pago) => sum + Number(pago.valor || 0),
-            0
-            );
-
-            const totalOrden = Number(orden.valorTotal || 0);
-            const saldoPendiente = Math.max(0, totalOrden - totalCubierto);
+            const paymentSummary = calculatePaymentSummary(orden.valorTotal, orden.pagos ?? []);
+            const totalPagado = paymentSummary.received;
+            const totalCubierto = paymentSummary.covered;
+            const saldoPendiente = paymentSummary.pending;
 
             const mascotaNombre = (orden.mascotas ?? [])
             .map((m) => m.nombre || "Sin nombre")
@@ -73,7 +74,7 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
             .join(", ");
 
             const detallePagos = (orden.pagos ?? [])
-            .filter((pago) => pago.medio || pago.valor || pago.concepto)
+            .filter((pago) => pago.tipo !== "Pendiente" && (pago.medio || pago.valor || pago.concepto))
             .map((pago) => {
                 const mascota = (orden.mascotas ?? []).find(
                     (pet) => pet.id === pago.mascotaId,
@@ -94,10 +95,9 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
             const mascotasDetalle: PetPending[] = (orden.mascotas ?? []).map((mascota) => {
                 const pagos = (orden.pagos ?? []).filter((pago) => pago.mascotaId === mascota.id);
                 const valor = calculatePetServicesTotal(mascota.servicios ?? []);
-                const pagado = pagos
-                    .filter((pago) => (pago.tipo ?? "Pago") === "Pago")
-                    .reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
-                const cubierto = pagos.reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
+                const summary = calculatePaymentSummary(valor, pagos);
+                const pagado = summary.received;
+                const cubierto = summary.covered;
                 return {
                     id: mascota.id,
                     nombre: mascota.nombre || "Sin nombre",
@@ -106,13 +106,14 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
                     valor,
                     pagado,
                     cubierto,
-                    saldo: Math.max(0, valor - cubierto),
+                    saldo: summary.pending,
                     pagos,
                 };
             });
 
             return {
             ...orden,
+            estadoPago: paymentSummary.status,
             numeroOrden,
             totalPagado,
             totalCubierto,
@@ -229,10 +230,9 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
     };
     const openPayment = (orden: Orden, petId = "") => {
         const pet = orden.mascotas.find((item) => item.id === petId) ?? orden.mascotas[0];
-        const petPayments = pet ? orden.pagos.filter((pago) => pago.mascotaId === pet.id) : [];
         const value = pet
-            ? Math.max(0, calculatePetServicesTotal(pet.servicios) - petPayments.reduce((sum, pago) => sum + Number(pago.valor || 0), 0))
-            : Math.max(0, Number(orden.valorTotal || 0) - orden.pagos.reduce((sum, pago) => sum + Number(pago.valor || 0), 0));
+            ? getPetPaymentSummary(orden, pet.id).pending
+            : calculatePaymentSummary(orden.valorTotal, orden.pagos ?? []).pending;
         setPaymentOrder(orden);
         setPaymentPetId(pet?.id ?? "");
         setPaymentAmount(String(value));
@@ -243,16 +243,10 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
     const closePayment = () => setPaymentOrder(null);
     const savePayment = () => {
         if (!paymentOrder || !paymentAmount || Number(paymentAmount) <= 0 || !paymentMethod || !paymentDate) return;
-        const selectedPet = paymentOrder.mascotas.find((pet) => pet.id === paymentPetId);
-        const paidForPet = selectedPet
-            ? paymentOrder.pagos
-                .filter((pago) => pago.mascotaId === paymentPetId)
-                .reduce((sum, pago) => sum + Number(pago.valor || 0), 0)
-            : paymentOrder.pagos.reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
-        const paymentLimit = selectedPet
-            ? calculatePetServicesTotal(selectedPet.servicios)
-            : Number(paymentOrder.valorTotal || 0);
-        const allowedAmount = Math.min(Number(paymentAmount), Math.max(0, paymentLimit - paidForPet));
+        const remaining = paymentPetId
+            ? getPetPaymentSummary(paymentOrder, paymentPetId).pending
+            : calculatePaymentSummary(paymentOrder.valorTotal, paymentOrder.pagos ?? []).pending;
+        const allowedAmount = Math.min(Number(paymentAmount), remaining);
         if (allowedAmount <= 0) return;
         const payment: PaymentRow = {
             id: crypto.randomUUID(),
@@ -266,12 +260,11 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
         onOrdenesChange((current) => current.map((orden) => {
             if (orden.id !== paymentOrder.id) return orden;
             const pagos = [...(orden.pagos ?? []), payment];
-            const total = Number(orden.valorTotal || 0);
-            const cubierto = pagos.reduce((sum, pago) => sum + Number(pago.valor || 0), 0);
+            const summary = calculatePaymentSummary(orden.valorTotal, pagos);
             return {
                 ...orden,
                 pagos,
-                estadoPago: total > 0 && cubierto >= total ? "Pagado" : cubierto > 0 ? "Pago parcial" : "Pendiente por pago",
+                estadoPago: summary.status,
             };
         }));
         closePayment();
@@ -500,15 +493,14 @@ export default function Pendings({ordenes, onOrdenesChange}:{ordenes: Orden[]; o
                                 <select value={paymentPetId} onChange={(event) => {
                                     const petId = event.target.value;
                                     const pet = paymentOrder.mascotas.find((item) => item.id === petId);
-                                    const covered = pet ? paymentOrder.pagos.filter((pago) => pago.mascotaId === petId).reduce((sum, pago) => sum + Number(pago.valor || 0), 0) : 0;
                                     setPaymentPetId(petId);
-                                    setPaymentAmount(pet ? String(Math.max(0, calculatePetServicesTotal(pet.servicios) - covered)) : "");
+                                    setPaymentAmount(pet ? String(getPetPaymentSummary(paymentOrder, petId).pending) : "");
                                 }} className={IC}>
                                     {paymentOrder.mascotas.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre || "Sin nombre"} · Orden {pet.numeroOrden || "Sin número"}</option>)}
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                                <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Valor recibido</label><input type="number" min="1" max={paymentOrder.mascotas.find((pet) => pet.id === paymentPetId) ? Math.max(0, calculatePetServicesTotal(paymentOrder.mascotas.find((pet) => pet.id === paymentPetId)?.servicios ?? []) - paymentOrder.pagos.filter((pago) => pago.mascotaId === paymentPetId).reduce((sum, pago) => sum + Number(pago.valor || 0), 0)) : Number(paymentOrder.valorTotal || 0)} value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className={IC} /></div>
+                                <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Valor recibido</label><input type="number" min="1" max={paymentPetId ? getPetPaymentSummary(paymentOrder, paymentPetId).pending : calculatePaymentSummary(paymentOrder.valorTotal, paymentOrder.pagos ?? []).pending} value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className={IC} /></div>
                                 <div><label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#6B7A99]">Método</label><select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} className={IC}><option value="">Seleccionar...</option>{MEDIOS_PAGO.map((medio) => <option key={medio} value={medio}>{medio}</option>)}</select></div>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
