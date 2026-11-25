@@ -12,7 +12,7 @@ function isMorning(order: Orden) {
   return Boolean(order.horaSolicitud) && order.horaSolicitud < MORNING_CUTOFF;
 }
 
-export default function Payments({ ordenes }: { ordenes: Orden[] }) {
+export default function CourierPaymentsSummary({ ordenes }: { ordenes: Orden[] }) {
   const [dateFilter, setDateFilter] = useState(currentDate());
   const [courierFilter, setCourierFilter] = useState("");
 
@@ -99,7 +99,7 @@ export default function Payments({ ordenes }: { ordenes: Orden[] }) {
     <div className="space-y-3">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[20px] font-extrabold tracking-tight text-[#1B2B4B]">Pagos por domiciliario</h1>
+          <h2 className="text-[16px] font-extrabold tracking-tight text-[#1B2B4B]">Consolidado de pagos por domiciliario</h2>
           <p className="mt-0.5 text-[12px] text-[#6B7A99]">Recaudo, promociones, descuentos y saldos del turno.</p>
         </div>
         <div className="flex flex-wrap gap-2">

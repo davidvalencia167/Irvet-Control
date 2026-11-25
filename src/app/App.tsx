@@ -16,7 +16,6 @@ import {
 
 import type { ComboCatalogo } from "../constants/services";
 import Pendings from "../Pages/Pendings/Pendings";
-import Payments from "../Pages/Payments/Payments";
 import Combos from "../Pages/Combo/Combos";
 import Login from "../Pages/Login/Login";
 import { getCurrentUser, login, logout, setSessionMarker, type AuthUser } from "../api/auth";
@@ -35,7 +34,6 @@ type ModuleKey =
   | "dashboard"
   | "services"
   | "pending"
-  | "payments"
   | "tasks"
   | "clients"
   | "veterinary"
@@ -291,7 +289,6 @@ useInactivityLogout(
       { key: "dashboard", label: "Dashboard" },
       { key: "services", label: "Registro de Servicios" },
       { key: "pending", label: "Pendientes" },
-      { key: "payments", label: "Pagos" },
       { key: "tasks", label: "Tareas diarias" },
       { key: "combos", label: "Combos" },
       { key: "clients", label: "Clientes" },
@@ -478,23 +475,6 @@ if (authLoading) {
         onLogout={handleAuthLogout}
       >
         <Pendings ordenes={ordenes} onOrdenesChange={setOrdenes} />
-      </MainLayout>
-    );
-  }
-
-  if (visibleModule === "payments") {
-    return (
-      <MainLayout
-        ordenes={ordenes}
-        title="Pagos"
-        showNewOrderButton={false}
-        activeModule={visibleModule}
-        onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
-        sidebarItems={visibleSidebarItems}
-        userName={authUser.nombre}
-        onLogout={handleAuthLogout}
-      >
-        <Payments ordenes={ordenes} />
       </MainLayout>
     );
   }

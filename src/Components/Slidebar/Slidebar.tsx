@@ -1,4 +1,4 @@
-import { ChevronDown, CircleAlert, ClipboardList, ShieldUser, Stethoscope, Users, Wallet } from "lucide-react";
+import { ChevronDown, CircleAlert, ClipboardList, ShieldUser, Stethoscope, Users } from "lucide-react";
 import { ImageWithFallback } from "../../app/components/ui/ImageWithFallback";
 import logoIrvet from "../../assets/logo_irvet.jpeg";
 
@@ -31,7 +31,6 @@ export default function Sidebar({
 }: SidebarProps) {
   const getMenuIcon = (key: string) => {
     if (key === "pending") return CircleAlert;
-    if (key === "payments") return Wallet;
     if (key === "clients") return Users;
     if (key === "veterinary") return Stethoscope;
     if (key === "manager") return ShieldUser;
