@@ -48,7 +48,7 @@ export default function MainLayout({
                     userName={userName}
                     onLogout={onLogout}
                 />
-                <main className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                <main className="flex-1 space-y-5 overflow-y-auto px-3 py-3 md:px-6 md:py-5">
                     {children}
                     <div className="h-4"/>
                 </main>

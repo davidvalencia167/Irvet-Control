@@ -152,6 +152,7 @@ export default function ServiceHistory({
     const query = search.trim().toLocaleLowerCase();
     const searchText = [
       orden.numeroOrden,
+      ...(orden.mascotas ?? []).map((mascota) => mascota.numeroOrden),
       orden.factura,
       orden.cliente,
       orden.responsable,
@@ -200,7 +201,7 @@ export default function ServiceHistory({
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar veterinaria, hora, responsable..."
+            placeholder="Buscar veterinaria, N° de orden, hora, responsable..."
             className="h-9 w-full rounded-lg border border-slate-200 bg-[#F4F7FA] pl-8 pr-3 text-xs text-[#1B2B4B] focus-visible:outline focus-visible:outline-[#2BB5C3]"
           />
         </label>

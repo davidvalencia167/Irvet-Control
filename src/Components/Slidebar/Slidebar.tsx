@@ -1,4 +1,4 @@
-import { ChevronDown, CircleAlert, ClipboardList, ShieldUser, Stethoscope, Users } from "lucide-react";
+import { ChevronDown, CircleAlert, ClipboardList, MapPinned, ShieldUser, Stethoscope, Users } from "lucide-react";
 import { ImageWithFallback } from "../../app/components/ui/ImageWithFallback";
 import logoIrvet from "../../assets/logo_irvet.jpeg";
 
@@ -34,21 +34,22 @@ export default function Sidebar({
     if (key === "clients") return Users;
     if (key === "veterinary") return Stethoscope;
     if (key === "manager") return ShieldUser;
+    if (key === "dispatch") return MapPinned;
     return ClipboardList;
   };
 
   return (
-    <aside className="w-60 shrink-0 flex flex-col h-full" style={{ background: "#1B2B4B" }}>
-      <div className="px-5 py-5 border-b border-white/10">
+    <aside className="flex h-full w-16 shrink-0 flex-col md:w-60" style={{ background: "#1B2B4B" }}>
+      <div className="border-b border-white/10 px-2 py-4 md:px-5 md:py-5">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl overflow-hidden bg-white flex items-center justify-center shrink-0 p-0.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-0.5">
             <ImageWithFallback
               src={logoIrvet}
               alt="IRVET Logo"
               className="w-full h-full object-contain"
             />
           </div>
-          <div className="min-w-0">
+          <div className="hidden min-w-0 md:block">
             <p className="text-white font-extrabold text-[13px] leading-tight tracking-tight">
               IRVET Control
             </p>
@@ -59,8 +60,8 @@ export default function Sidebar({
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        <p className="text-white/25 text-[10px] font-bold uppercase tracking-widest px-3 mb-2">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-1 py-4 md:px-3">
+        <p className="mb-2 hidden px-3 text-[10px] font-bold uppercase tracking-widest text-white/25 md:block">
           Módulos
         </p>
 
@@ -72,8 +73,10 @@ export default function Sidebar({
             <button
               key={item.key}
               type="button"
+              aria-label={item.label}
+              title={item.label}
               onClick={() => onSelectModule?.(item.key)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-left transition-colors"
+              className="flex w-full items-center justify-center gap-3 rounded-xl px-2 py-2.5 text-left text-[13px] font-semibold transition-colors md:justify-start md:px-3"
               style={{
                 background: isActive ? "#2BB5C3" : "transparent",
                 boxShadow: isActive ? "0 4px 14px rgba(43,181,195,0.35)" : "none",
@@ -81,10 +84,10 @@ export default function Sidebar({
               }}
             >
               <Icon size={16} strokeWidth={2.5} />
-              {item.label}
+              <span className="hidden md:inline">{item.label}</span>
 
               {item.key === "services" && totalOrdenes > 0 && (
-                <span className="ml-auto text-[10px] font-bold bg-white/15 px-1.5 py-0.5 rounded-md">
+                <span className="ml-auto hidden rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-bold md:inline">
                   {totalOrdenes}
                 </span>
               )}
@@ -93,7 +96,7 @@ export default function Sidebar({
         })}
       </nav>
 
-      <div className="px-4 pb-5 pt-3 border-t border-white/10">
+      <div className="border-t border-white/10 px-2 pb-5 pt-3 md:px-4">
         <div className="flex items-center gap-2.5">
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0"
@@ -101,11 +104,11 @@ export default function Sidebar({
           >
             CA
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="hidden min-w-0 flex-1 md:block">
             <p className="text-white text-[12px] font-semibold truncate">Carlos</p>
             <p className="text-white/35 text-[10px] truncate">Administrador</p>
           </div>
-          <ChevronDown size={13} className="text-white/30 shrink-0" />
+          <ChevronDown size={13} className="hidden shrink-0 text-white/30 md:block" />
         </div>
       </div>
     </aside>

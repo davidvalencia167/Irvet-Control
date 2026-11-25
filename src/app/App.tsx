@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import MainLayout from "../Layout/MainLayout";
 import Clients from "../Pages/Clients/Clients";
 import Manager from "../Pages/Manager/Manager";
@@ -39,7 +39,10 @@ type ModuleKey =
   | "veterinary"
   | "manager"
   | "catalog"
-  | "combos";
+  | "combos"
+  | "dispatch";
+
+const Dispatch = lazy(() => import("../Pages/Dispatch/Dispatch"));
 
 function cleanServiceCatalog(catalog: Record<string, ServicioCatalogo[]>) {
   const cleaned: Record<string, ServicioCatalogo[]> = {};
@@ -226,6 +229,22 @@ function App() {
 
     const loadData = async () => {
       try {
+        const usersPromise =
+          ["Administrador", "Representante Legal"].includes(authUser.rol)
+            ? api.users()
+            : Promise.resolve({
+                users: [
+                  {
+                    id: String(authUser.id),
+                    nombre: authUser.nombre,
+                    usuario: authUser.usuario,
+                    password: "",
+                    correo: authUser.correo,
+                    rol: authUser.rol,
+                    estado: authUser.estado,
+                  },
+                ],
+              });
         const [
           clients,
           veterinarians,
@@ -240,7 +259,7 @@ function App() {
           api.catalog(),
           api.combos(),
           api.orders(),
-          api.users(),
+          usersPromise,
           api.tasks(),
         ]);
 
@@ -249,7 +268,13 @@ function App() {
         setCatalogo(catalogWithFallback(catalog.catalog));
         setCombos(combosResult.combos);
         setOrdenes(orders.orders);
-        setResponsables(users.users);
+        setResponsables(
+          users.users.map((user) => ({
+            ...user,
+            id: String(user.id),
+            password: user.password ?? "",
+          })),
+        );
         setTasks(tasksResult.tasks);
         setTaskCategories(tasksResult.categories);
       } catch (error) {
@@ -262,6 +287,9 @@ function App() {
 
   const canViewDashboard = authUser
     ? ["ELDER", "CARLOS"].includes(normalizeLoginValue(authUser.usuario))
+    : false;
+  const canViewDispatch = authUser
+    ? ["Administrador", "Domiciliario multiservicios"].includes(authUser.rol)
     : false;
 
   const handleAuthLogin = async (
@@ -295,12 +323,15 @@ useInactivityLogout(
       { key: "veterinary", label: "Médicos Veterinarios" },
       { key: "manager", label: "Responsables" },
       { key: "catalog", label: "Catálogo de Servicios" },
+      { key: "dispatch", label: "Centro de Despachos IA" },
     ];
 
-    return canViewDashboard
-      ? items
-      : items.filter((item) => item.key !== "dashboard");
-  }, [canViewDashboard]);
+    return items.filter(
+      (item) =>
+        (canViewDashboard || item.key !== "dashboard") &&
+        (canViewDispatch || item.key !== "dispatch"),
+    );
+  }, [canViewDashboard, canViewDispatch]);
 
 if (authLoading) {
   return (
@@ -430,12 +461,17 @@ if (authLoading) {
     );
   };
 
-  const visibleModule = !canViewDashboard && activeModule === "dashboard"
-    ? "services"
-    : activeModule;
-  const visibleSidebarItems = canViewDashboard
-    ? sidebarItems
-    : sidebarItems.filter((item) => item.key !== "dashboard");
+  const visibleModule =
+    authUser.rol === "Domiciliario multiservicios"
+      ? "dispatch"
+      : (!canViewDashboard && activeModule === "dashboard") ||
+          (!canViewDispatch && activeModule === "dispatch")
+        ? "services"
+        : activeModule;
+  const visibleSidebarItems =
+    authUser.rol === "Domiciliario multiservicios"
+      ? sidebarItems.filter((item) => item.key === "dispatch")
+      : sidebarItems;
 
   if (visibleModule === "dashboard") {
     return (
@@ -600,6 +636,37 @@ if (authLoading) {
           onDelete={handleDeleteTask}
           onCreateCategory={handleCreateTaskCategory}
         />
+      </MainLayout>
+    );
+  }
+
+  if (visibleModule === "dispatch") {
+    return (
+      <MainLayout
+        ordenes={ordenes}
+        title="Centro de Despachos IA"
+        showNewOrderButton={false}
+        activeModule={visibleModule}
+        onSelectModule={(moduleKey) => setActiveModule(moduleKey as ModuleKey)}
+        sidebarItems={visibleSidebarItems}
+        userName={authUser.nombre}
+        onLogout={handleAuthLogout}
+      >
+        <Suspense
+          fallback={
+            <p className="rounded-xl bg-white p-5 text-sm font-semibold text-[#1B2B4B]">
+              Cargando Centro de Despachos…
+            </p>
+          }
+        >
+          <Dispatch
+            clients={clientes}
+            orders={ordenes}
+            responsables={responsables}
+            currentUser={authUser}
+            onOrdersChange={setOrdenes}
+          />
+        </Suspense>
       </MainLayout>
     );
   }

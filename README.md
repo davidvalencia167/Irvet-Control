@@ -30,3 +30,9 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Dispatch center backend setup
+
+The dispatch center uses the existing authenticated PHP API session. Before using it, install `dispatches.php`, `courier-locations.php`, and `routes.php` in the API directory and import `dispatch-schema.sql` into the API's MySQL database. The XAMPP API copy at `C:\xampp\htdocs\irvet-api\api` is outside this Git repository, so these backend files must be deployed separately; the frontend's API base URL must point to the same API environment.
+
+Route suggestions use courier GPS updated within the last five minutes and straight-line geodesic distance. They do not include road networks, traffic, or driving-time estimates.

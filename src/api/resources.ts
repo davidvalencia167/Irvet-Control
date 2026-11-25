@@ -7,7 +7,7 @@ import { getCurrentUser, setSessionMarker } from "./auth";
 
 const API_URL = "https://sistemaintegralirvet.com/irvet-api/api";
 
-async function request<T>(endpoint:string, options: RequestInit = {},): Promise<T> {
+export async function request<T>(endpoint:string, options: RequestInit = {},): Promise<T> {
     const response = await fetch(`${API_URL}${endpoint}`, {
         ...options,
         credentials: "include",
